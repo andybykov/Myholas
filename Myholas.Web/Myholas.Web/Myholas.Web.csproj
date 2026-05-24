@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+	<ItemGroup>
+		<!-- WASM клиент  -->
+		<ProjectReference Include="..\Myholas.Web.Client\Myholas.Web.Client.csproj" />
+
+		<!-- Зависимости -->
+		<ProjectReference Include="..\..\Myholas.Core\Myholas.Core.csproj" />
+		<ProjectReference Include="..\..\Myholas.BLL\Myholas.BLL.csproj" />
+		<ProjectReference Include="..\..\Myholas.DAL\Myholas.DAL.csproj" />
+
+		<!-- NuGet -->
+		<PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" Version="8.0.26" />
+		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.10" />
+	</ItemGroup>
+
+</Project>

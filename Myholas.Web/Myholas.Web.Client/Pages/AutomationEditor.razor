@@ -1,0 +1,268 @@
+﻿@page "/automations/edit"
+@page "/automations/edit/{EditId:int}"
+
+@using Myholas.Web.Client.Models
+@using Myholas.Core.Dtos
+
+@rendermode InteractiveWebAssembly
+
+@inject ApiClient Api
+@inject NavigationManager Navigation
+
+<EditForm Model="@Model"
+          OnValidSubmit="@Save"
+          FormName="automation-form">
+
+    <div class="card">
+
+        <div class="card-header">
+
+            <h5>
+                @(Model.Id == 0
+                    ? "Новая автоматизация"
+                    : "Редактирование автоматизации")
+            </h5>
+
+        </div>
+
+        <div class="card-body">
+
+            <!-- NAME -->
+
+            <div class="mb-3">
+
+                <label class="form-label">
+                    Название
+                </label>
+
+                <InputText class="form-control"
+                           @bind-Value="Model.Name" />
+
+            </div>
+
+            <!-- DESCRIPTION -->
+
+            <div class="mb-3">
+
+                <label class="form-label">
+                    Описание
+                </label>
+
+                <InputTextArea class="form-control"
+                               @bind-Value="Model.Description" />
+
+            </div>
+
+            <hr />
+
+            <!-- TRIGGER -->
+
+            <h5>Триггер</h5>
+
+            <div class="row">
+
+                <div class="col-md-5">
+
+                    <EntitySelector
+                        Label="Entity"
+                        Devices="@devices"
+                        @bind-SelectedEntityId=
+                            "Model.TriggerEntityId" />
+
+                </div>
+
+                <div class="col-md-3">
+
+                    <label>Оператор</label>
+
+                    <select class="form-select"
+                            @bind="Model.TriggerOperator">
+
+                        <option value="==">==</option>
+
+                        <option value="!=">!=</option>
+
+                        <option value=">">@(">")</option>
+
+                        <option value="<">@("<")</option>
+
+                        <option value=">=">@(">=")</option>
+
+                        <option value="<=">@("<=")</option>
+
+                        <option value="contains">
+                            contains
+                        </option>
+
+                    </select>
+
+                </div>
+
+                <div class="col-md-4">
+
+                    <label>Значение</label>
+
+                    <InputText class="form-control"
+                               @bind-Value=
+                                   "Model.TriggerValue" />
+
+                </div>
+
+            </div>
+
+            <hr />
+
+            <!-- ACTION -->
+
+            <h5>Действие</h5>
+
+            <div class="row">
+
+                <div class="col-md-6">
+
+                    <EntitySelector
+                        Label="Entity"
+                        Devices="@devices"
+                        @bind-SelectedEntityId=
+                            "Model.ActionEntityId" />
+
+                </div>
+
+                <div class="col-md-6">
+
+                    <label>Команда</label>
+
+                    <select class="form-select"
+                            @bind="Model.ActionCommandType">
+
+                        <option value="on">
+                            ON
+                        </option>
+
+                        <option value="off">
+                            OFF
+                        </option>
+
+                        <option value="toggle">
+                            TOGGLE
+                        </option>
+
+                    </select>
+
+                </div>
+
+            </div>
+
+            <hr />
+
+            <!-- DELAY -->
+
+            <h5>Delay</h5>
+
+            <div class="row">
+
+                <div class="col-md-4">
+
+                    <label>Delay ms</label>
+
+                    <InputNumber class="form-control"
+                                 @bind-Value=
+                                     "Model.DelayMs" />
+
+                </div>
+
+            </div>
+
+            <hr />
+
+            <!-- ENABLE -->
+
+            <div class="form-check">
+
+                <InputCheckbox class="form-check-input"
+                               @bind-Value=
+                                   "Model.IsEnabled" />
+
+                <label class="form-check-label">
+                    Включена
+                </label>
+
+            </div>
+
+        </div>
+
+        <div class="card-footer">
+
+            <button type="submit"
+                    class="btn btn-primary">
+
+                Сохранить
+
+            </button>
+
+            <button type="button"
+                    class="btn btn-secondary ms-2"
+                    @onclick="Cancel">
+
+                Отмена
+
+            </button>
+
+        </div>
+
+    </div>
+
+</EditForm>
+
+@code {
+
+    [Parameter]
+    public int? EditId { get; set; }
+
+    private AutomationEditModel Model = new();
+
+    private List<DeviceOutputModels> devices = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        devices =
+            await Api.GetGroupedDevicesAsync();
+
+        // EDIT
+
+        if (EditId.HasValue)
+        {
+            var dto =
+                await Api.GetAutomationAsync(
+                    EditId.Value);
+
+            if (dto != null)
+            {
+                Model =
+                    AutomationEditModel
+                        .FromDto(dto);
+            }
+        }
+    }
+
+    private async Task Save()
+    {
+        var dto = Model.ToDto();
+
+        if (dto.Id == 0)
+        {
+            await Api.CreateAutomationAsync(dto);
+        }
+        else
+        {
+            await Api.UpdateAutomationAsync(dto);
+        }
+
+        Navigation.NavigateTo("/automations");
+    }
+
+    private void Cancel()
+    {
+        Navigation.NavigateTo("/automations");
+    }
+}

@@ -1,0 +1,170 @@
+﻿@page "/automations"
+
+@using Myholas.Core.Dtos
+@using System.Text.Json
+
+@rendermode InteractiveWebAssembly
+
+@inject ApiClient Api
+@inject NavigationManager Navigation
+
+<h3>Автоматизации</h3>
+
+<button class="btn btn-primary mb-3"
+        @onclick='() => Navigation.NavigateTo("/automations/edit")'>
+    + Новая автоматизация
+</button>
+
+@if (automations == null)
+{
+    <p>Загрузка...</p>
+}
+else if (!automations.Any())
+{
+    <p>Нет автоматизаций</p>
+}
+else
+{
+    <div class="list-group">
+        @foreach (var a in automations)
+        {
+            <div class="list-group-item">
+                <div class="d-flex justify-content-between align-items-start">
+
+                    <div>
+                        <h5>@a.Name</h5>
+
+                        <p class="text-muted">
+                            @a.Description
+                        </p>
+
+                        <div class="small">
+
+                            <div>
+                                <strong>Триггеры:</strong>
+
+                                @if (!string.IsNullOrWhiteSpace(a.TriggersJson))
+                                {
+                                    <pre class="mb-1">
+@PrettyJson(a.TriggersJson)
+                                    </pre>
+                                }
+                            </div>
+
+                            <div>
+                                <strong>Conditions:</strong>
+
+                                @if (!string.IsNullOrWhiteSpace(a.ConditionsJson))
+                                {
+                                    <pre class="mb-1">
+@PrettyJson(a.ConditionsJson)
+                                    </pre>
+                                }
+                            </div>
+
+                            <div>
+                                <strong>Actions:</strong>
+
+                                @if (!string.IsNullOrWhiteSpace(a.ActionsJson))
+                                {
+                                    <pre class="mb-1">
+@PrettyJson(a.ActionsJson)
+                                    </pre>
+                                }
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <div class="text-end">
+
+                        <span class="badge @(a.IsEnabled
+                                                                                        ? "bg-success"
+                                                                                        : "bg-secondary") mb-2">
+
+                            @(a.IsEnabled ? "Включена" : "Выключена")
+
+                        </span>
+
+                        <div class="btn-group">
+
+                            <button class="btn btn-sm btn-outline-primary"
+                                    @onclick="() => Edit(a.Id)">
+                                ✏️
+                            </button>
+
+                            <button class="btn btn-sm btn-outline-danger"
+                                    @onclick="() => Delete(a.Id)">
+                                🗑️
+                            </button>
+
+                            <button class="btn btn-sm btn-outline-secondary"
+                                    @onclick="() => Toggle(a.Id, !a.IsEnabled)">
+                                🔄
+                            </button>
+
+                        </div>
+
+                    </div>
+
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+
+    private List<AutomationEntityDto>? automations;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Load();
+    }
+
+    private async Task Load()
+    {
+        automations = await Api.GetAutomationsAsync();
+
+        StateHasChanged();
+    }
+
+    private void Edit(int id)
+    {
+        Navigation.NavigateTo($"/automations/edit/{id}");
+    }
+
+    private async Task Delete(int id)
+    {
+        if (await Api.DeleteAutomationAsync(id))
+        {
+            await Load();
+        }
+    }
+
+    private async Task Toggle(int id, bool enabled)
+    {
+        await Api.ToggleAutomationAsync(id, enabled);
+
+        await Load();
+    }
+
+    private string PrettyJson(string json)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+
+            return JsonSerializer.Serialize(
+                doc,
+                new JsonSerializerOptions
+                {
+                    WriteIndented = true
+                });
+        }
+        catch
+        {
+            return json;
+        }
+    }
+}

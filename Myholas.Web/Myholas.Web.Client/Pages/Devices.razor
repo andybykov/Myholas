@@ -1,0 +1,34 @@
+﻿@page "/"
+@rendermode InteractiveWebAssembly
+@inject ApiClient Api
+
+<h3>Устройства ESPHome</h3>
+
+@if (groups == null)
+{
+    <p>Загрузка...</p>
+}
+else if (!groups.Any())
+{
+    <p>Нет доступных устройств.</p>
+}
+else
+{
+    <div class="row">
+        @foreach (var deviceGroup in groups)
+        {
+            <div class="col-12">
+                <DeviceGroupCard DeviceGroup="deviceGroup" />
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private List<DeviceOutputModels>? groups;
+
+    protected override async Task OnInitializedAsync()
+    {
+        groups = await Api.GetGroupedDevicesAsync();
+    }
+}

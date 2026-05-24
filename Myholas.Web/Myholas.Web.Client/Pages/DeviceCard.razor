@@ -1,0 +1,79 @@
+﻿@rendermode InteractiveWebAssembly
+@inject ApiClient Api
+@inject IJSRuntime JsRuntime
+
+<div class="card h-100 shadow-sm">
+    <div class="card-body">
+        <h5 class="card-title">@Entity.EntityId</h5>
+        <p class="card-text">
+            <strong>Домен:</strong> @Entity.Domain<br />
+            <strong>Состояние:</strong>
+            <span class="badge @GetStateBadgeClass()">@Entity.State</span>
+        </p>
+
+        @if (Entity.Domain == "switch")
+        {
+            <button class="btn btn-success btn-sm me-2" @onclick="TurnOn">Вкл</button>
+            <button class="btn btn-danger btn-sm me-2" @onclick="TurnOff">Выкл</button>
+            <button class="btn btn-secondary btn-sm" @onclick="Toggle">Переключить</button>
+        }
+        else if (Entity.Domain == "light")
+        {
+            <button class="btn btn-success btn-sm me-2" @onclick="TurnOn">Вкл</button>
+            <button class="btn btn-danger btn-sm me-2" @onclick="TurnOff">Выкл</button>
+            @if (true)
+            {
+                <div class="mt-2">
+                    <label>Яркость</label>
+                    <input type="range" min="0" max="255" @bind="brightness" />
+                    <button class="btn btn-primary btn-sm mt-1" @onclick="SetBrightness">Установить</button>
+                </div>
+            }
+        }
+        else if (Entity.Domain == "sensor")
+        {
+            <p class="mt-2">Значение: <strong>@Entity.State</strong> @(Entity.UnitOfMeasurement ?? "")</p>
+        }
+
+        <a href="@($"/device/{Entity.EntityId}")" class="btn btn-link btn-sm mt-2">Подробнее...</a>
+    </div>
+</div>
+
+@code {
+    [Parameter] public EntityOutputModel Entity { get; set; } = null!;
+    private int brightness = 128;
+
+    private string GetStateBadgeClass() => Entity.State == "on" ? "bg-success" : "bg-secondary";
+
+    private async Task TurnOn()
+    {
+        await Api.TurnOnAsync(Entity.EntityId);
+        await RefreshState();
+    }
+
+    private async Task TurnOff()
+    {
+        await Api.TurnOffAsync(Entity.EntityId);
+        await RefreshState();
+    }
+
+    private async Task Toggle()
+    {
+        await Api.ToggleAsync(Entity.EntityId);
+        await RefreshState();
+    }
+
+    private async Task SetBrightness()
+    {
+        await Api.SetBrightnessAsync(Entity.EntityId, brightness);
+        await RefreshState();
+    }
+
+    private async Task RefreshState()
+    {
+        var updated = await Api.GetCurrentStateAsync(Entity.EntityId);
+        if (updated != null)
+            Entity = updated;
+        StateHasChanged();
+    }
+}
