@@ -11,10 +11,13 @@ namespace Myholas.API.Controllers
     {
         private readonly IAutomationManager _manager;
 
+        private readonly IEventBus _eventBus;
+
         public AutomationsController(
-            IAutomationManager manager)
+            IAutomationManager manager, IEventBus eventBus)
         {
             _manager = manager;
+            _eventBus = eventBus;
         }
 
         [HttpGet]
@@ -43,7 +46,6 @@ namespace Myholas.API.Controllers
         public async Task<IActionResult> Create([FromBody] AutomationEntityDto dto)
         {
             // VALIDATION
-
             if (string.IsNullOrWhiteSpace(dto.Name))
             {
                 return BadRequest(
@@ -63,7 +65,6 @@ namespace Myholas.API.Controllers
             }
 
             // JSON VALIDATION
-
             if (!IsValidJson(dto.TriggersJson))
             {
                 return BadRequest(
@@ -87,11 +88,11 @@ namespace Myholas.API.Controllers
             }
 
             // CREATE
-
             dto.CreatedAt = DateTime.UtcNow;
 
-            var created =
-                await _manager.AddAsync(dto);
+            var created = await _manager.AddAsync(dto);
+
+            _eventBus.Emit("automation.created", string.Empty); // событие для EventBus
 
             return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
         }
