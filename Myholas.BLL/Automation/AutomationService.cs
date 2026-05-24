@@ -54,6 +54,7 @@ namespace Myholas.BLL.Automation
 
 
             _eventBus.Listen("state_changed", OnStateChanged);
+            _eventBus.Listen("automation.created", OnStateChanged);
 
             // обновляем automation rules
             while (!stoppingToken.IsCancellationRequested)
@@ -79,7 +80,7 @@ namespace Myholas.BLL.Automation
         }
 
         /// <summary>
-        /// Вызывается при state_changed event
+        /// Вызывается при state_changed, automation.created event
         ///
         /// - проверяются triggers
         /// - conditions
@@ -161,8 +162,7 @@ namespace Myholas.BLL.Automation
 
 
         // Проверка conditions       
-        private async Task<bool> CheckConditions(
-            AutomationEntityDto automation)
+        private async Task<bool> CheckConditions(AutomationEntityDto automation)
         {
             var conditions = automation.GetConditions();
 

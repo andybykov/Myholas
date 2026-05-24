@@ -15,37 +15,32 @@ public class AutomationEditModel
 
     public bool IsEnabled { get; set; } = true;
 
-    // ======================================================================
+    
     // TRIGGER
-    // ======================================================================
 
     public string TriggerEntityId { get; set; } = string.Empty;
 
-    public string TriggerOperator { get; set; } = "==";
+    public string TriggerOperator { get; set; } = "equals";
 
     public string TriggerValue { get; set; } = string.Empty;
 
-    // ======================================================================
-    // ACTION
-    // ======================================================================
+   // ACTION
 
     public string ActionEntityId { get; set; } = string.Empty;
 
     public string ActionCommandType { get; set; } = "on";
 
-    // ======================================================================
-    // DELAY
-    // ======================================================================
+
+    // DELAY   
 
     public int DelayMs { get; set; }
 
-    // ======================================================================
+
     // TO DTO
-    // ======================================================================
 
     public AutomationEntityDto ToDto()
     {
-        // ----- Triggers ----------------------------------------------------
+        
         var triggers = new List<AutomationTriggerDto>
         {
             new()
@@ -57,7 +52,7 @@ public class AutomationEditModel
             }
         };
 
-        // ----- Actions -----------------------------------------------------
+        
         var actions = new List<AutomationActionDto>
         {
             new()
@@ -68,7 +63,7 @@ public class AutomationEditModel
             }
         };
 
-        // ----- Optional delay ---------------------------------------------
+       
         if (DelayMs > 0)
         {
             actions.Add(new AutomationActionDto
@@ -81,7 +76,7 @@ public class AutomationEditModel
             });
         }
 
-        // ----- Build DTO ---------------------------------------------------
+       
         return new AutomationEntityDto
         {
             Id = Id,
@@ -106,9 +101,8 @@ public class AutomationEditModel
         };
     }
 
-    // ======================================================================
+
     // FROM DTO
-    // ======================================================================
 
     public static AutomationEditModel FromDto(AutomationEntityDto dto)
     {
@@ -120,7 +114,7 @@ public class AutomationEditModel
             IsEnabled = dto.IsEnabled
         };
 
-        // ----- Triggers ----------------------------------------------------
+        
         if (!string.IsNullOrWhiteSpace(dto.TriggersJson))
         {
             var triggers = JsonSerializer.Deserialize<List<AutomationTriggerDto>>(dto.TriggersJson);
@@ -134,12 +128,12 @@ public class AutomationEditModel
             }
         }
 
-        // ----- Actions -----------------------------------------------------
+       
         if (!string.IsNullOrWhiteSpace(dto.ActionsJson))
         {
             var actions = JsonSerializer.Deserialize<List<AutomationActionDto>>(dto.ActionsJson);
 
-            // Command
+            
             var commandAction = actions?.FirstOrDefault(a => a.Type == "command");
             if (commandAction != null)
             {
@@ -147,7 +141,7 @@ public class AutomationEditModel
                 model.ActionCommandType = commandAction.Command;
             }
 
-            // Delay
+            
             var delayAction = actions?.FirstOrDefault(a => a.Type == "delay");
             if (delayAction?.Parameters != null &&
                 delayAction.Parameters.TryGetValue("ms", out var delay))
