@@ -260,7 +260,7 @@ public sealed class MqttDeviceDiscoveryService : IAsyncDisposable
 
             default:
                 // хз что, базовый DTO
-                config= JsonSerializer.Deserialize<BaseEntityConfigDto>(payload);
+                config = JsonSerializer.Deserialize<BaseEntityConfigDto>(payload);
                 break;
         }
 

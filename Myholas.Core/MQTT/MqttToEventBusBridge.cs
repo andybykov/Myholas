@@ -22,7 +22,7 @@ namespace Myholas.Core.MQTT
             _discoveryService.DeviceUpdated += OnDeviceUpdated;
             _discoveryService.StateReceived += OnStateReceived;
             _discoveryService.CommandReceived += OnCommandReceived;
-            // _discoveryService.EntityConfigReceived += OnConfigRecived;
+            _discoveryService.EntityConfigReceived += OnConfigRecived;
 
         }
 
