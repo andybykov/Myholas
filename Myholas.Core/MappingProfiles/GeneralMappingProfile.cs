@@ -2,11 +2,6 @@
 using Myholas.Core.Dtos;
 using Myholas.Core.Models.Input;
 using Myholas.Core.Models.Output;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Myholas.Core.MappingProfiles
 {
@@ -25,8 +20,8 @@ namespace Myholas.Core.MappingProfiles
                 .ForMember(dest => dest.Options, opt => opt.MapFrom(src => ExtractOptionsFromAttributes(src.AttributesJson)))
                 // string to bool? / switch/light
                 .ForMember(dest => dest.IsOn, opt => opt.MapFrom(src =>
-                (src.Domain == "switch" || src.Domain == "light") && src.CurrentState.Equals("on", StringComparison.OrdinalIgnoreCase)));           
-           
+                (src.Domain == "switch" || src.Domain == "light") && src.CurrentState.Equals("on", StringComparison.OrdinalIgnoreCase)));
+
 
             // StateEntityDto to DeviceHistoryOutputModel
             CreateMap<StateEntityDto, DeviceHistoryOutputModel>()
@@ -34,7 +29,7 @@ namespace Myholas.Core.MappingProfiles
                 .ForMember(dest => dest.EntityId, opt => opt.MapFrom(src => src.EntityId))
                 .ForMember(dest => dest.State, opt => opt.MapFrom(src => src.State))
                 .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => src.CreatedAt))
-                // УБРАТЬ!
+                // for del!
                 .ForMember(dest => dest.AttributesSummary, opt => opt.MapFrom(src => SummarizeAttributes(src.AttributesJson)));
 
             // UserEntityDto to UserEntityOutputModel
@@ -76,5 +71,5 @@ namespace Myholas.Core.MappingProfiles
         }
     }
 }
-    
+
 
