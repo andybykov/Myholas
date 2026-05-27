@@ -39,7 +39,7 @@ namespace Myholas.API.Controllers
             [FromQuery] DateTime? to,
             [FromQuery] int limit = 100)
         {
-            var history = _stateManager.GetHistoryAsync(entityId, from, to, limit);
+            var history = await _stateManager.GetHistoryAsync(entityId, from, to, limit);
 
             return Ok(history);
         }

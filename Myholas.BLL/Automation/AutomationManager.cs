@@ -19,7 +19,6 @@ namespace Myholas.BLL.Automation
         }
 
 
-
         // Получить по ID
         public async Task<AutomationEntityDto?> GetByIdAsync(int id)
         {
@@ -30,8 +29,7 @@ namespace Myholas.BLL.Automation
         // Получить все 
         public async Task<List<AutomationEntityDto>> GetAllAsync(bool includeDisabled = false)
         {
-            return await _repository.GetAllAsync(
-                includeDisabled);
+            return await _repository.GetAllAsync(includeDisabled);
         }
 
 
