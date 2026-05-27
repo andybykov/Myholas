@@ -6,7 +6,7 @@ using Myholas.Core.Interfaces;
 using Myholas.Core.Models.Output;
 using System.Text.Json;
 
-namespace Myholas.BLL.States
+namespace Myholas.BLL.State
 {
 
     // Управляет состояниями устройств и связью их с БД    

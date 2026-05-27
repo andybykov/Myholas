@@ -3,7 +3,7 @@ using Myholas.Core.Dtos;
 using Myholas.Core.Interfaces;
 using Myholas.Core.Models.Output;
 
-namespace Myholas.BLL.Devices
+namespace Myholas.BLL.Device
 {
 
     // Менеджер устройств - CRUD операции и бизнес-логика для DeviceEntityDto
@@ -24,14 +24,14 @@ namespace Myholas.BLL.Devices
         public async Task<EntityOutputModel?> GetEntityByIdAsync(string entityId)
         {
             var device = await _deviceRepo.GetByIdAsync(entityId);
-
-            return device == null ? null : _mapper.Map<EntityOutputModel>(device);
+     
+            return _mapper.Map<EntityOutputModel>(device);
         }
 
         // Все сущности 
         public async Task<List<EntityOutputModel>> GetAllEntitiesAsync(bool includeUnavailable = false)
         {
-            var devices = await _deviceRepo.GetAllAsync(includeUnavailable);
+            var devices = await _deviceRepo.GetAllAsync(includeUnavailable); 
 
             return _mapper.Map<List<EntityOutputModel>>(devices);
         }
@@ -70,7 +70,8 @@ namespace Myholas.BLL.Devices
                     Entities = _mapper.Map<List<EntityOutputModel>>(grp.ToList())
                 };
                 result.Add(group);
-            }
+            }         
+
             return result;
         }
 
@@ -78,7 +79,6 @@ namespace Myholas.BLL.Devices
         // Удалить устройство по EntityId 
         public async Task<bool> DeleteAsync(string entityId)
         {
-
             return await _deviceRepo.DeleteAsync(entityId);
         }
 
@@ -92,13 +92,15 @@ namespace Myholas.BLL.Devices
         public async Task<List<EntityOutputModel>> GetEntitiesByDomainAsync(string domain)
         {
             var devices = await _deviceRepo.GetByDomainAsync(domain);
+        
             return _mapper.Map<List<EntityOutputModel>>(devices);
         }
 
         // Сущности по физическому DeviceId
         public async Task<List<EntityOutputModel>> GetEntitiesByDeviceIdAsync(string deviceId)
         {
-            var devices = await _deviceRepo.GetByDeviceIdAsync(deviceId);
+            var devices = await _deviceRepo.GetByDeviceIdAsync(deviceId);           
+
             return _mapper.Map<List<EntityOutputModel>>(devices);
         }
     }

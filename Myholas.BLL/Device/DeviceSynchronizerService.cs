@@ -5,7 +5,7 @@ using Myholas.Core.Models.Output;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace Myholas.BLL.Devices
+namespace Myholas.BLL.Device
 {
     // Синхронизатор устройств с БД
     // Слушает device.updated и сохраняет конфигурации в БД

@@ -3,8 +3,9 @@ using Microsoft.OpenApi.Models;
 using Myholas.API.Services;
 using Myholas.BLL;
 using Myholas.BLL.Automation;
-using Myholas.BLL.Devices;
-using Myholas.BLL.States;
+using Myholas.BLL.Device;
+using Myholas.BLL.State;
+using Myholas.BLL.User;
 using Myholas.Core;
 using Myholas.Core.Interfaces;
 using Myholas.Core.MappingProfiles;
@@ -38,13 +39,14 @@ namespace Myholas.API
             // AutoMapper 
             builder.Services.AddAutoMapper(cfg =>
                 {
-                    cfg.AddProfile<DeviceMappingProfile>(); //профили
+                    cfg.AddProfile<GeneralMappingProfile>(); //профили                    
 
                 });
 
             // BLL  
             builder.Services.AddScoped<IDeviceManager, DeviceManager>();
             builder.Services.AddScoped<IStateManager, StateManager>();
+            builder.Services.AddScoped<IUserManager, UserManager>();
             builder.Services.AddScoped<DeviceSynchronizerService>();
             builder.Services.AddScoped<ICommandService, CommandService>();           
             builder.Services.AddScoped<IAutomationManager, AutomationManager>();
@@ -55,6 +57,7 @@ namespace Myholas.API
             // DAL  
             builder.Services.AddScoped<IDeviceRepository, DeviceRepository>();
             builder.Services.AddScoped<IStateRepository, StateRepository>();
+            builder.Services.AddScoped<IUserRepository, UserRepository>();
             builder.Services.AddScoped<IAutomationRepository, AutomationRepository>();
 
             // DbContext

@@ -1,4 +1,4 @@
-﻿using Myholas.BLL.Devices;
+﻿using Myholas.BLL.Device;
 using Myholas.Core.Interfaces;
 using Myholas.Core.MQTT;
 

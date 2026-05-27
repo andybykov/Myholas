@@ -5,6 +5,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using static Myholas.Core.Enums;
 
 namespace Myholas.Core.Dtos
 {
@@ -19,16 +20,15 @@ namespace Myholas.Core.Dtos
         public string Username { get; set; } = "";
 
 
-        [MaxLength(255)]
-        public string Email { get; set; } = "";
+//        [MaxLength(255)]
+//        public string Email { get; set; } = "";
 
 
         [MaxLength(255)]
-        public string PasswordHash { get; set; } = "";   // Хеш пароля (BCrypt)
+        public string PasswordHash { get; set; } = "";   // Хеш пароля
 
 
-        [MaxLength(50)]
-        public string? Role { get; set; } = "user";      // "admin", "user", "viewer"
+        public UserRole Role { get; set; } = UserRole.User;      
 
 
         public bool IsActive { get; set; } = true;
@@ -40,31 +40,9 @@ namespace Myholas.Core.Dtos
         public DateTime? LastLogin { get; set; }
 
 
-        // Навигационное свойство: токены обновления (для JWT)
-        public virtual ICollection<RefreshTokenEntity> RefreshTokens { get; set; } = new List<RefreshTokenEntity>();
-    }
+        public virtual ICollection<UserDeviceAccessDto> DeviceAccess { get; set; } = new List<UserDeviceAccessDto>();
 
-    [Table("RefreshTokens")]
-    public class RefreshTokenEntity
-    {
-        [Key]
-        public int Id { get; set; }
+        public virtual ICollection<AutomationEntityDto> Automations { get; set; } = new List<AutomationEntityDto>();
 
-
-        [MaxLength(500)]
-        public string Token { get; set; } = "";
-
-
-        public DateTime ExpiresAt { get; set; }
-
-
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
-
-        public int UserId { get; set; }
-
-
-        [ForeignKey(nameof(UserId))]
-        public virtual UserEntityDto User { get; set; } = null!;
-    }
+    }    
 }

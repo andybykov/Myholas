@@ -62,5 +62,7 @@ namespace Myholas.Core.Dtos
 
         // Навигационное свойство: история состояний
         public virtual ICollection<StateEntityDto> States { get; set; } = new List<StateEntityDto>();
+
+        public virtual ICollection<UserDeviceAccessDto> UserAccess { get; set; } = new List<UserDeviceAccessDto>();
     }
 }

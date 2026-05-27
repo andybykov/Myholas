@@ -11,6 +11,8 @@ namespace Myholas.Core.Dtos
         [Key]
         public int Id { get; set; }
 
+        public int? CreatedByUserId { get; set; }  // ID пользователя, создавшего автоматизацию
+
 
         [MaxLength(200)]
         public string Name { get; set; } = "";
@@ -36,5 +38,8 @@ namespace Myholas.Core.Dtos
 
 
         public DateTime? UpdatedAt { get; set; }
+
+        // навигация
+        public virtual UserEntityDto? CreatedByUser { get; set; } 
     }
 }

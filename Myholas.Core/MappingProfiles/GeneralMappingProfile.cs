@@ -1,5 +1,6 @@
 ﻿using AutoMapper;
 using Myholas.Core.Dtos;
+using Myholas.Core.Models.Input;
 using Myholas.Core.Models.Output;
 using System;
 using System.Collections.Generic;
@@ -9,9 +10,9 @@ using System.Threading.Tasks;
 
 namespace Myholas.Core.MappingProfiles
 {
-    public class DeviceMappingProfile : Profile
+    public class GeneralMappingProfile : Profile
     {
-        public DeviceMappingProfile()
+        public GeneralMappingProfile()
         {
             // DeviceEntityDto to EntityOutputModel 
             CreateMap<DeviceEntityDto, EntityOutputModel>()
@@ -24,9 +25,7 @@ namespace Myholas.Core.MappingProfiles
                 .ForMember(dest => dest.Options, opt => opt.MapFrom(src => ExtractOptionsFromAttributes(src.AttributesJson)))
                 // string to bool? / switch/light
                 .ForMember(dest => dest.IsOn, opt => opt.MapFrom(src =>
-                (src.Domain == "switch" || src.Domain == "light") && src.CurrentState.Equals("on", StringComparison.OrdinalIgnoreCase)));
-
-           
+                (src.Domain == "switch" || src.Domain == "light") && src.CurrentState.Equals("on", StringComparison.OrdinalIgnoreCase)));           
            
 
             // StateEntityDto to DeviceHistoryOutputModel
@@ -37,10 +36,27 @@ namespace Myholas.Core.MappingProfiles
                 .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => src.CreatedAt))
                 // УБРАТЬ!
                 .ForMember(dest => dest.AttributesSummary, opt => opt.MapFrom(src => SummarizeAttributes(src.AttributesJson)));
+
+            // UserEntityDto to UserEntityOutputModel
+            CreateMap<UserEntityDto, UserEntityOutputModel>()
+                .ForMember(dest => dest.Username, opt => opt.MapFrom(src => src.Username))
+                .ForMember(dest => dest.Role, opt => opt.MapFrom(src => src.Role))
+                .ForMember(dest => dest.IsActive, opt => opt.MapFrom((src) => src.IsActive))
+                .ForMember(dest => dest.LastLogin, opt => opt.MapFrom(src => src.LastLogin))
+                .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => src.CreatedAt));
+
+            // UserEntityInputModel to UserEntityDto
+            CreateMap<UserEntityInputModel, UserEntityDto>()
+                .ForMember(dest => dest.Username, opt => opt.MapFrom(src => src.UserName))
+                .ForMember(dest => dest.PasswordHash, opt => opt.MapFrom(src => src.Password))
+                .ForMember(dest => dest.Role, opt => opt.MapFrom(src => src.Role))
+                .ForMember(dest => dest.IsActive, opt => opt.MapFrom(src => src.IsActive));
+
         }
 
-        // Вспомогательные методы 
-        
+
+
+        // Вспомогательные методы         
         private static List<string>? ExtractOptionsFromAttributes(string? attributesJson)
         {
             if (string.IsNullOrEmpty(attributesJson)) return null;

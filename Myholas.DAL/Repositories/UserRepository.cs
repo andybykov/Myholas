@@ -3,7 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Myholas.Core;
 using Myholas.Core.Dtos;
 using Myholas.Core.Interfaces;
-using BCrypt.Net;
+using static Myholas.Core.Enums;
 
 namespace Myholas.DAL.Repositories
 {
@@ -26,11 +26,10 @@ namespace Myholas.DAL.Repositories
             using (var scope = _scopeFactory.CreateScope())
             {
                 var context = scope.ServiceProvider.GetRequiredService<DataContext>();
+
                 return await context.Users.FindAsync(id);
             }
         }
-
-
 
 
         public async Task<UserEntityDto?> GetByUsernameAsync(string username)
@@ -38,89 +37,89 @@ namespace Myholas.DAL.Repositories
             using (var scope = _scopeFactory.CreateScope())
             {
                 var context = scope.ServiceProvider.GetRequiredService<DataContext>();
+
                 return await context.Users.FirstOrDefaultAsync(u => u.Username == username);
             }
         }
 
 
-       
-        public async Task<UserEntityDto?> GetByEmailAsync(string email)
-        {
-            using (var scope = _scopeFactory.CreateScope())
-            {
-                var context = scope.ServiceProvider.GetRequiredService<DataContext>();
-                return await context.Users.FirstOrDefaultAsync(u => u.Email == email);
-            }
-        }
 
-       
-        public async Task<UserEntityDto> CreateAsync(UserEntityDto user, string plainPassword)
+        public async Task<UserEntityDto> CreateAsync(UserEntityDto user, string password)
         {
             using (var scope = _scopeFactory.CreateScope())
             {
                 var context = scope.ServiceProvider.GetRequiredService<DataContext>();
 
                 // Хешируем пароль
-                user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(plainPassword);
+                user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(password);
                 user.CreatedAt = DateTime.UtcNow;
 
                 await context.Users.AddAsync(user);
                 await context.SaveChangesAsync();
+
                 return user;
             }
         }
 
-        
         public async Task<bool> ValidatePasswordAsync(string username, string plainPassword)
         {
             var user = await GetByUsernameAsync(username);
-            if (user == null) return false;
+            if (user == null) 
+                return false;
 
-            // BCrypt.Verify сравнивает введённый пароль с сохранённым хешем
+            // BCrypt.Verify сравнивает введенный пароль с сохраненным хешем
             return BCrypt.Net.BCrypt.Verify(plainPassword, user.PasswordHash);
         }
 
-       
-        public async Task<bool> UpdatePasswordAsync(int userId, string newPlainPassword)
+
+        public async Task<bool> UpdatePasswordAsync(int userId, string newPassword)
         {
             using (var scope = _scopeFactory.CreateScope())
             {
                 var context = scope.ServiceProvider.GetRequiredService<DataContext>();
                 var user = await context.Users.FindAsync(userId);
-                if (user == null) return false;
 
-                user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPlainPassword);
+                if (user == null)
+                    return false;
+
+                user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
                 await context.SaveChangesAsync();
+
                 return true;
             }
         }
 
-       
+
         public async Task<bool> UpdateLastLoginAsync(int userId)
         {
             using (var scope = _scopeFactory.CreateScope())
             {
                 var context = scope.ServiceProvider.GetRequiredService<DataContext>();
                 var user = await context.Users.FindAsync(userId);
-                if (user == null) return false;
+
+                if (user == null)
+                    return false;
 
                 user.LastLogin = DateTime.UtcNow;
                 await context.SaveChangesAsync();
+
                 return true;
             }
         }
 
-        
+
         public async Task<bool> DeleteAsync(int userId)
         {
             using (var scope = _scopeFactory.CreateScope())
             {
                 var context = scope.ServiceProvider.GetRequiredService<DataContext>();
                 var user = await context.Users.FindAsync(userId);
-                if (user == null) return false;
+                if (user == null)
+                    return false;
 
                 context.Users.Remove(user);
                 await context.SaveChangesAsync();
+
                 return true;
             }
         }
@@ -128,55 +127,23 @@ namespace Myholas.DAL.Repositories
         public async Task<bool> IsAdminAsync(int userId)
         {
             var user = await GetByIdAsync(userId);
-            return user != null && user.Role == "admin";
+
+            return user != null && UserRole.Admin == user.Role;
         }
 
-       
-        public async Task<RefreshTokenEntity> CreateRefreshTokenAsync(int userId, int expiryDays = 7)
+
+        public async Task<List<UserEntityDto>> GetByRoleAsync(UserRole role)
         {
             using (var scope = _scopeFactory.CreateScope())
             {
                 var context = scope.ServiceProvider.GetRequiredService<DataContext>();
 
-                var token = new RefreshTokenEntity
-                {
-                    // Генерируем  GUID
-                    Token = Convert.ToBase64String(Guid.NewGuid().ToByteArray()),
-                    ExpiresAt = DateTime.UtcNow.AddDays(expiryDays),
-                    CreatedAt = DateTime.UtcNow,
-                    UserId = userId
-                };
+                var users = await context.Users.Where(u => UserRole.Admin == role)   // фильтрация по роли
+                                            .ToListAsync();
+                if (users == null)
+                    return new();
 
-                await context.RefreshTokens.AddAsync(token);
-                await context.SaveChangesAsync();
-                return token;
-            }
-        }
-
-      
-        public async Task<RefreshTokenEntity?> GetRefreshTokenAsync(string token)
-        {
-            using (var scope = _scopeFactory.CreateScope())
-            {
-                var context = scope.ServiceProvider.GetRequiredService<DataContext>();
-                return await context.RefreshTokens
-                    .Include(rt => rt.User)
-                    .FirstOrDefaultAsync(rt => rt.Token == token);
-            }
-        }
-
-       
-        public async Task<bool> RevokeRefreshTokenAsync(string token)
-        {
-            using (var scope = _scopeFactory.CreateScope())
-            {
-                var context = scope.ServiceProvider.GetRequiredService<DataContext>();
-                var rt = await context.RefreshTokens.FirstOrDefaultAsync(rt => rt.Token == token);
-                if (rt == null) return false;
-
-                context.RefreshTokens.Remove(rt);
-                await context.SaveChangesAsync();
-                return true;
+                return users;
             }
         }
     }
