@@ -1,27 +1,33 @@
-﻿@page "/"
-@rendermode InteractiveWebAssembly
-@inject ApiClient Api
+﻿@page "/devices"
+@using Microsoft.AspNetCore.Authorization
+@rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
+
+@* Наследуемся от базового класса *@
+@inherits SecureComponentBase
 
 <h3>Устройства ESPHome</h3>
 
-@if (groups == null)
+@if (!IsAuthenticated)
 {
-    <p>Загрузка...</p>
-}
-else if (!groups.Any())
-{
-    <p>Нет доступных устройств.</p>
+    <div class="alert alert-danger">Доступ ограничен. Пожалуйста, войдите.</div>
 }
 else
 {
+    <h3>Устройства пользователя @CurrentUser?.Username</h3>
+    
+    @if (IsAdmin)
+    {
+        <div class="alert alert-info">Вы вошли как Администратор системы.</div>
+    }
+
     <div class="row">
-        @foreach (var deviceGroup in groups)
-        {
-            <div class="col-12">
-                <DeviceGroupCard DeviceGroup="deviceGroup" />
-            </div>
-        }
-    </div>
+            @foreach (var deviceGroup in groups)
+            {
+                <div class="col-12">
+                    <DeviceGroupCard DeviceGroup="deviceGroup" />
+                </div>
+            }
+        </div>    
 }
 
 @code {
@@ -29,6 +35,12 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        groups = await Api.GetGroupedDevicesAsync();
+        // Вызываем проверку из базового класса
+        await base.OnInitializedAsync();
+
+        if (IsAuthenticated)
+        {
+            groups = await Api.GetGroupedDevicesAsync();
+        }
     }
 }

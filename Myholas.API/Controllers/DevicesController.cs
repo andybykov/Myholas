@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Myholas.BLL;
 using Myholas.Core.Dtos;
 using Myholas.Core.Interfaces;
@@ -18,6 +19,7 @@ namespace Myholas.API.Controllers
         }
 
         //  Получить все устройства в виде списка EntityOutputModel 
+        [Authorize]
         [HttpGet("entities")]
         public async Task<ActionResult<List<EntityOutputModel>>> GetAllEntities([FromQuery] bool includeUnavailable = false)
         {

@@ -1,5 +1,4 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Myholas.BLL.User;
 using Myholas.Core.Interfaces;
 using Myholas.Core.Models.Input;
 using Myholas.Core.Models.Output;
@@ -11,7 +10,7 @@ namespace Myholas.API.Controllers
     [Route("api/[controller]")]
     public class UsersController : ControllerBase
     {
-        private readonly IUserManager _userManager;        
+        private readonly IUserManager _userManager;
 
         public UsersController(IUserManager userManager)
         {
@@ -40,7 +39,7 @@ namespace Myholas.API.Controllers
             return Ok(user);
         }
 
-        // POST api/users
+        // POST api/users Create user
         [HttpPost]
         public async Task<ActionResult<UserEntityOutputModel>> Create([FromBody] UserEntityInputModel user)
         {
@@ -50,35 +49,44 @@ namespace Myholas.API.Controllers
             if (string.IsNullOrWhiteSpace(user.Password))
                 return BadRequest("Password is required");
 
-            // ВАЖНО: предполагается, что в UserEntityOutputModel есть поле Id (int)
+            var notAvaibleName = await _userManager.GetByUsernameAsync(user.UserName);
+
+            if (notAvaibleName is not null && notAvaibleName.Username is not null)
+                return BadRequest($"Name {user.UserName} is not avaible");
+
             var createdUser = await _userManager.CreateAsync(user, user.Password);
 
-            // Если Id нет, замените new { id = createdUser.Id } на new { username = createdUser.Username }
-            return CreatedAtAction(nameof(GetById), new { id = createdUser.Username }, createdUser);
+
+            return CreatedAtAction(nameof(GetById), new { id = createdUser.Id }, createdUser);
         }
 
         // POST api/users/validate-password
         [HttpPost("validate-password")]
-        public async Task<ActionResult<bool>> ValidatePassword([FromBody] string username, string password)
+        public async Task<ActionResult<bool>> ValidatePassword([FromBody] UserLoginInputModel user)
         {
-            if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
+
+
+            if (string.IsNullOrWhiteSpace(user.Username) || string.IsNullOrWhiteSpace(user.Password))
                 return BadRequest("Username and password are required");
 
-            var isValid = await _userManager.ValidatePasswordAsync(username, password);
+            var isValid = await _userManager.ValidatePasswordAsync(user.Username, user.Password);
             return Ok(isValid);
         }
 
-        // PUT api/users/{userId}/password
-        [HttpPut("{userId:int}/password")]
-        public async Task<ActionResult<bool>> UpdatePassword(int userId, [FromBody] string newPass)
+        // PUT api/users/update/password        
+        // Обновить пароль 
+        [HttpPut("update/password")]
+        public async Task<ActionResult<bool>> UpdatePassword([FromBody] UserLoginInputModel user)
         {
-            if (userId <= 0)
-                return BadRequest("Valid userId is required");
+            var validUser = await _userManager.GetByUsernameAsync(user.Username);
+            var newPass = user.Password;
+            if (validUser is null)
+                return BadRequest("Not valid user");
 
             if (string.IsNullOrWhiteSpace(newPass))
                 return BadRequest("New password is required");
 
-            var result = await _userManager.UpdatePasswordAsync(userId, newPass);
+            var result = await _userManager.UpdatePasswordAsync(validUser.Id, newPass);
             if (!result)
                 return StatusCode(500, "Failed to update password");
 
@@ -123,6 +131,6 @@ namespace Myholas.API.Controllers
             return Ok(users);
         }
 
-        
+
     }
 }

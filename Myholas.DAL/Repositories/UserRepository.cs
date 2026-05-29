@@ -138,7 +138,7 @@ namespace Myholas.DAL.Repositories
             {
                 var context = scope.ServiceProvider.GetRequiredService<DataContext>();
 
-                var users = await context.Users.Where(u => UserRole.Admin == role)   // фильтрация по роли
+                var users = await context.Users.Where(u => UserRole.Admin == role)  // фильтрация по роли
                                             .ToListAsync();
                 if (users == null)
                     return new();

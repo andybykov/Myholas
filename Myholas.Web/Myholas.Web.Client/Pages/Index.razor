@@ -1,0 +1,104 @@
+﻿@page "/"
+@using System.Security.Claims
+@using Blazored.LocalStorage
+@using Myholas.Web.Client.Auth
+@rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
+
+@inject AuthenticationStateProvider AuthStateProvider
+@inject ILocalStorageService LocalStorage
+@inject NavigationManager Navigation
+
+<PageTitle>Отладка Авторизации</PageTitle>
+
+<div class="container mt-4">
+    <div class="card shadow">
+        <div class="card-header bg-primary text-white">
+            <h3 class="mb-0">🔍 Debug: Статус Авторизации</h3>
+        </div>
+        <div class="card-body">
+            
+            @if (_authState == null)
+            {
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p>Загрузка данных пользователя...</p>
+                </div>
+            }
+            else if (_authState.User.Identity?.IsAuthenticated == true)
+            {
+                <div class="alert alert-success">
+                    <strong>Статус:</strong> ✅ Пользователь авторизован
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <h5>👤 Информация из Токена (Claims)</h5>
+                        <ul class="list-group">
+                            <li class="list-group-item"><b>Имя:</b> @_authState.User.Identity?.Name</li>
+                            <li class="list-group-item">
+                                <b>Роль:</b>
+                                @( _authState.User.FindFirst(ClaimTypes.Role)?.Value ?? "Не указана")
+                            </li>
+                            <li class="list-group-item">
+                                <b>ID Пользователя:</b>
+                                @( _authState.User.FindFirst("userId")?.Value ?? "Не указан")
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h5>🔑 Секретный Токен (JWT)</h5>
+                        <div class="bg-light p-2 border rounded" style="word-break: break-all; font-family: monospace; font-size: 0.8rem; max-height: 200px; overflow-y: auto;">
+                            @_rawToken
+                        </div>
+                        <p class="text-muted small mt-2">Скопируйте этот токен в Swagger (Bearer {token}) для тестов.</p>
+                    </div>
+                </div>
+
+                <div class="mt-4 d-flex gap-2">
+                    <a href="/devices" class="btn btn-success">Перейти к устройствам 🚀</a>
+                    <button class="btn btn-danger" @onclick="Logout">Выйти из системы</button>
+                </div>
+            }
+            else
+            {
+                <div class="alert alert-warning">
+                    <strong>Статус:</strong> ❌ Пользователь НЕ авторизован (Аноним)
+                </div>
+                <div class="text-center py-4">
+                    <p>Вы вошли как гость. Доступ к управлению домом ограничен.</p>
+                    <a href="/login" class="btn btn-primary btn-lg">Перейти к странице входа</a>
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="mt-4 p-3 bg-dark text-light rounded" style="font-family: monospace;">
+        <h6>💡 Подсказка для разработчика:</h6>
+        <p>Если вы видите "Не авторизован", но уверены, что токен есть в LocalStorage — проверьте <code>CustomAuthStateProvider.cs</code>. Если токен есть, но роль пустая — проверьте <code>AuthController</code> на сервере.</p>
+    </div>
+</div>
+
+@code {
+    private AuthenticationState? _authState;
+    private string? _rawToken;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // 1. Получаем текущее состояние пользователя через провайдер
+        _authState = await AuthStateProvider.GetAuthenticationStateAsync();
+
+        // 2. Достаем "сырой" токен из LocalStorage для отладки
+        _rawToken = await LocalStorage.GetItemAsync<string>("authToken");
+    }
+
+    private async Task Logout()
+    {
+        // Приводим провайдер к нашему кастомному типу, чтобы вызвать MarkUserAsUnauthenticated
+        if (AuthStateProvider is CustomAuthStateProvider customProvider)
+        {
+            await customProvider.MarkUserAsUnauthenticated();
+        }
+        
+        Navigation.NavigateTo("/", forceLoad: true);
+    }
+}

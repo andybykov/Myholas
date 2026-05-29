@@ -1,4 +1,6 @@
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Myholas.API.Services;
 using Myholas.BLL;
@@ -11,6 +13,8 @@ using Myholas.Core.Interfaces;
 using Myholas.Core.MappingProfiles;
 using Myholas.Core.MQTT;
 using Myholas.DAL.Repositories;
+using System.Security.Claims;
+using System.Text;
 
 namespace Myholas.API
 {
@@ -22,6 +26,7 @@ namespace Myholas.API
 
             builder.Services.AddControllers();
             builder.Services.AddEndpointsApiExplorer();
+            // 1. Настройка Swagger, чтобы он умел отправлять JWT токены
             builder.Services.AddSwaggerGen(options =>
             {
                 options.SwaggerDoc("v0.1", new OpenApiInfo
@@ -29,7 +34,62 @@ namespace Myholas.API
                     Title = "Myjolas Services API",
                     Version = "v0.1",
                 });
+
+                // Добавляем определение безопасности (кнопка Authorize в Swagger)
+                options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+                {
+                    Description = "JWT Authorization header using the Bearer scheme. Example: \"Bearer {token}\"",
+                    Name = "Authorization",
+                    In = ParameterLocation.Header,
+                    Type = SecuritySchemeType.ApiKey,
+                    Scheme = "Bearer"
+                });
+
+                options.AddSecurityRequirement(new OpenApiSecurityRequirement
+                { 
+                    {
+                        new OpenApiSecurityScheme
+                        {
+                            Reference = new OpenApiReference
+                            {
+                                Type = ReferenceType.SecurityScheme,
+                                Id = "Bearer"
+                            }
+                        },
+                        Array.Empty<string>()
+                    }
+                });
             });
+          
+            // данные из appsettings.json
+            var jwtKey = builder.Configuration["JwtSettings:Key"];
+            var jwtIssuer = builder.Configuration["JwtSettings:Issuer"];
+            var jwtAudience = builder.Configuration["JwtSettings:Audience"];
+
+
+            if (string.IsNullOrEmpty(jwtKey))
+            {
+                throw new Exception("JWT Key not found in appsettings.json!");
+            }
+
+            // JWT auth
+            builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+                .AddJwtBearer(options =>
+                {
+                    options.TokenValidationParameters = new TokenValidationParameters
+                    {
+                        ValidateIssuer = true,
+                        ValidateAudience = true,
+                        ValidateLifetime = true,
+                        ValidateIssuerSigningKey = true,
+                        ValidIssuer = "MyholasServer",
+                        ValidAudience = "MyholasClient",
+                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
+                        RoleClaimType = ClaimTypes.Role // Чтобы работал [Authorize(Roles = "Admin")]
+                    };
+                });
+
+            builder.Services.AddAuthorization();
 
             builder.Services.AddSingleton<IMqttService, MqttService>();
             // Core  
@@ -48,7 +108,7 @@ namespace Myholas.API
             builder.Services.AddScoped<IStateManager, StateManager>();
             builder.Services.AddScoped<IUserManager, UserManager>();
             builder.Services.AddScoped<DeviceSynchronizerService>();
-            builder.Services.AddScoped<ICommandService, CommandService>();           
+            builder.Services.AddScoped<ICommandService, CommandService>();
             builder.Services.AddScoped<IAutomationManager, AutomationManager>();
 
 
@@ -108,16 +168,15 @@ namespace Myholas.API
 
             var app = builder.Build();
 
-            app.UseCors("AllowBlazor");
-
+           
             // Инициализация базы данных 
             using (var scope = app.Services.CreateScope())
             {
                 var context = scope.ServiceProvider.GetRequiredService<DataContext>();
                 await context.Database.EnsureCreatedAsync(); // EnsureCreated
-            }           
+            }
 
-           
+
             if (app.Environment.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();
@@ -134,7 +193,9 @@ namespace Myholas.API
             }
 
             app.UseHttpsRedirection();
-            app.UseAuthorization();
+            app.UseCors("AllowBlazor"); // CORS
+            app.UseAuthentication(); // Аутентификация
+            app.UseAuthorization();  // Потом авторизация
             app.MapControllers();
             app.Run();
         }

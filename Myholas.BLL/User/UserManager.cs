@@ -51,7 +51,7 @@ namespace Myholas.BLL.User
             return _mapper.Map<UserEntityOutputModel>(newUserDto);
         }
 
-
+        // сравнивает введенный пароль с сохраненным хешем
         public async Task<bool> ValidatePasswordAsync(string username, string plainPassword)
         {
             return await _userRep.ValidatePasswordAsync(username, plainPassword);

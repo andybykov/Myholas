@@ -1,10 +1,12 @@
 ﻿@page "/automations"
 
+@using Microsoft.AspNetCore.Authorization
 @using Myholas.Core.Dtos
 @using System.Text.Json
 
+@* client rendering *@
 @rendermode InteractiveWebAssembly
-
+@attribute [Authorize]
 @inject ApiClient Api
 @inject NavigationManager Navigation
 

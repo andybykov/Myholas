@@ -1,6 +1,7 @@
-﻿using System.Net.Http.Json;
+﻿using Myholas.Core.Dtos;
+using Myholas.Core.Models.Input;
 using Myholas.Core.Models.Output;
-using Myholas.Core.Dtos;
+using System.Net.Http.Json;
 
 namespace Myholas.Web.Client.Services
 {
@@ -44,7 +45,6 @@ namespace Myholas.Web.Client.Services
 
 
         // StatesController
-
         public async Task<EntityOutputModel?> GetCurrentStateAsync(string entityId) =>
             await _http.GetFromJsonAsync<EntityOutputModel>($"/api/states/{entityId}/current");
 
@@ -113,6 +113,51 @@ namespace Myholas.Web.Client.Services
             var response = await _http.PatchAsync(
                 $"/api/automations/{id}/toggle?enabled={enabled}",
                 null);
+            return response.IsSuccessStatusCode;
+        }
+
+        // --- AuthController ---
+        public async Task<string?> LoginAsync(string username, string password)
+        {
+            // 1. Создаем объект модели, который ожидает контроллер
+            var loginModel = new UserLoginInputModel
+            {
+                Username = username,
+                Password = password
+            };
+
+            // 2. Отправляем объект целиком
+            var response = await _http.PostAsJsonAsync("/api/Auth/login", loginModel);
+
+            if (response.IsSuccessStatusCode)
+            {
+                // 3. Читаем ответ как JSON-объект, а не как строку
+                // Создаем временный класс-обертку для токена
+                var result = await response.Content.ReadFromJsonAsync<TokenResponse>();
+                return result?.Token; // Возвращаем только саму строку токена
+            }
+
+            return null; // Если ошибка, возвращаем null
+        }
+
+        
+
+        // --- UsersController ---
+        public async Task<UserEntityOutputModel?> GetUserByIdAsync(int id) =>
+            await _http.GetFromJsonAsync<UserEntityOutputModel>($"/api/Users/{id}");
+
+        public async Task<UserEntityOutputModel?> GetUserByUsernameAsync(string username) =>
+            await _http.GetFromJsonAsync<UserEntityOutputModel>($"/api/Users/by-username/{username}");
+
+        public async Task<bool> CreateUserAsync(UserEntityInputModel user)
+        {
+            var response = await _http.PostAsJsonAsync("/api/Users", user);
+            return response.IsSuccessStatusCode;
+        }
+
+        public async Task<bool> UpdatePasswordAsync(UserLoginInputModel model)
+        {
+            var response = await _http.PutAsJsonAsync("/api/Users/update/password", model);
             return response.IsSuccessStatusCode;
         }
     }

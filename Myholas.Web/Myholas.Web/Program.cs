@@ -1,5 +1,12 @@
+using Blazored.LocalStorage;
+using Microsoft.AspNetCore.Authentication; 
+using Microsoft.AspNetCore.Authentication.JwtBearer; 
+using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.IdentityModel.Tokens; 
+using Myholas.Web.Client.Auth;
 using Myholas.Web.Client.Services;
 using Myholas.Web.Components;
+using System.Text;
 
 namespace Myholas.Web
 {
@@ -12,7 +19,27 @@ namespace Myholas.Web
             // Blazor компоненты
             builder.Services.AddRazorComponents()
                 .AddInteractiveServerComponents()
-                .AddInteractiveWebAssemblyComponents();
+                .AddInteractiveWebAssemblyComponents();           
+
+           
+            // Настройка авторизации на сервере 
+            builder.Services.AddAuthorization();
+            builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+                .AddJwtBearer(options =>
+                {
+                    // те же настройки что и в API
+                    options.TokenValidationParameters = new TokenValidationParameters
+                    {
+                        ValidateIssuer = true,
+                        ValidateAudience = true,
+                        ValidateLifetime = true,
+                        ValidateIssuerSigningKey = true,
+                        ValidIssuer = builder.Configuration["JwtSettings:Issuer"],
+                        ValidAudience = builder.Configuration["JwtSettings:Audience"],
+                        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["JwtSettings:Key"] ?? "fallback_secret_key_32_chars_long!!"))
+                    };
+                });
+            
 
             // HTTPCLIENT ДЛЯ API 
             builder.Services.AddHttpClient("ApiHttpClient", client =>
@@ -20,26 +47,28 @@ namespace Myholas.Web
                 client.BaseAddress = new Uri("http://localhost:5174/");
             });
 
-            // Регистрируем 
             builder.Services.AddScoped<ApiClient>(sp =>
             {
                 var factory = sp.GetRequiredService<IHttpClientFactory>();
                 var httpClient = factory.CreateClient("ApiHttpClient");
                 return new ApiClient(httpClient);
             });
-            
 
             var app = builder.Build();
 
             // Статические файлы 
             app.UseStaticFiles();
 
-            // Антифоргерийный токен
             app.UseAntiforgery();
 
-            // Маршруты Blazor
+            
+            app.UseAuthentication();
+            app.UseAuthorization();
+
+
             app.MapRazorComponents<App>()
-                .AddInteractiveWebAssemblyRenderMode()
+                .AddInteractiveWebAssemblyRenderMode() //CLIENT!!!!!!!
+                .AddInteractiveServerRenderMode()
                 .AddAdditionalAssemblies(typeof(Myholas.Web.Client._Imports).Assembly);
 
             app.Run();
