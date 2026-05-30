@@ -1,4 +1,4 @@
-﻿namespace Myholas.Core.Dtos
+﻿namespace Myholas.Core.Dtos.Automations
 {
     public class AutomationConditionDto
     {

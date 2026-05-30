@@ -1,17 +1,14 @@
 ﻿using Myholas.Core.Dtos;
+using Myholas.Core.Dtos.Devices;
 using Myholas.Core.Interfaces;
 
-namespace Myholas.BLL
+namespace Myholas.BLL.Device
 {
-    //  формирует и отправляет команды устройствам
     public class CommandService : ICommandService
     {
         private readonly IDeviceRepository _deviceRepo;
-
         private readonly IStateRepository _statesRepo;
-
         private readonly ICommandSender _cmd;
-
 
         public CommandService(IDeviceRepository deviceRepo, IStateRepository stateRepository, ICommandSender commandSender)
         {
@@ -23,57 +20,55 @@ namespace Myholas.BLL
         // отправка команды
         public async Task SendCommandAsync(string entityId, string command, object? parameters = null)
         {
+            // 1. Теперь ищем СУЩНОСТЬ (EntityDto), а не устройство
+            var entity = await _deviceRepo.GetByEntityIdAsync(entityId);
 
-            var device = await _deviceRepo.GetByIdAsync(entityId);
+            // Проверяем, существует ли сущность и есть ли у неё топик для команд
+            if (entity == null || string.IsNullOrEmpty(entity.CommandTopic))
+                throw new InvalidOperationException($"Entity {entityId} not found or has no CommandTopic");
 
-            // устройство существует и имеет топик для команд
-            if (device == null || string.IsNullOrEmpty(device.CommandTopic))
-                throw new InvalidOperationException($"Device {entityId} not found or has no CommandTopic");
+            // 2. Получаем последнее состояние для реализации логики TOGGLE
+            // Наш новый GetLastStateAsync принимает string entityId
+            var state = await _statesRepo.GetLastStateAsync(entityId);
+            var lastState = state?.State;
 
-            var state = await _statesRepo.GetLastStateAsync(device.EntityId);
+            // 3. Формируем payload в зависимости от домена сущности
+            string payload = BuildPayload(entity, command, parameters, lastState);
 
-            var lastState= state?.State;
-
-            // формируем payload в зависимости от типа устройства и команды
-            string payload = BuildPayload(device, command, parameters, lastState);
-
-            // отправляем JSON в MQTT‑топик
-            await _cmd.SendCommandAsync(device.CommandTopic, payload);
+            // 4. Отправляем в MQTT-топик
+            await _cmd.SendCommandAsync(entity.CommandTopic, payload);
         }
 
-        // JSON‑payload
-        private string BuildPayload(DeviceEntityDto device, string command, object? parameters, string lastState = "")
+        // Логика формирования сообщения (JSON для света, String для остальных)
+        private string BuildPayload(EntityDto entity, string command, object? parameters, string? lastState = "")
         {
             var cmd = command.ToLowerInvariant();
-            //Console.WriteLine($"CMD: {cmd}");
 
-            if (device.Domain.ToLower() == "light")
+            // ЛОГИКА ДЛЯ СВЕТА (Light) -> Всегда JSON
+            if (entity.Domain.ToLower() == "light")
             {
                 switch (cmd)
                 {
-                    case "on": 
+                    case "on":
                         return "{\"state\":\"ON\"}";
-                    case "off": 
+                    case "off":
                         return "{\"state\":\"OFF\"}";
                     case "toggle":
-                        if(lastState.ToLower() == "on")
-                        {
-                            return "{\"state\":\"OFF\"}";
-                        }
-                        else
-                        {
-                            return "{\"state\":\"ON\"}";
-                        }
-                        
-                    // задается параметром, если он передан
+                        // Если текущее состояние ON -> шлем OFF, и наоборот
+                        return (lastState?.ToLower() == "on")
+                            ? "{\"state\":\"OFF\"}"
+                            : "{\"state\":\"ON\"}";
+
                     case "brightness" when parameters != null:
                         return $"{{\"state\":\"ON\",\"brightness\":{GetBrightness(parameters)}}}";
-                    // JSON – возвращаем как есть
-                    default: return command;
+
+                    default:
+                        return command; // Если пришла специфическая команда, шлем её как есть
                 }
             }
 
-            if (device.Domain.ToLower() == "switch")
+            // ЛОГИКА ДЛЯ ВЫКЛЮЧАТЕЛЯ (Switch) -> Простой текст
+            if (entity.Domain.ToLower() == "switch")
             {
                 switch (cmd)
                 {
@@ -82,28 +77,20 @@ namespace Myholas.BLL
                     case "off":
                         return "OFF";
                     case "toggle":
-                        return "TOGGLE";                    
-                    // JSON – возвращаем как есть
-                    default: return command;
+                        return "TOGGLE";
+                    default:
+                        return command;
                 }
             }
 
-            // Устройства типа select
-            if (device.Domain == "select")
-                return command;
-
-            // остальные типы 
+            // Для select и остальных типов отправляем команду как есть
             return command;
         }
 
-        // Извлекает значение brightness из объекта параметров
-        private int GetBrightness(object parameters)
+        private string GetBrightness(object parameters)
         {
-            var prop = parameters.GetType().GetProperty("brightness");
-            if (prop != null)
-                return Convert.ToInt32(prop.GetValue(parameters));
-
-            return 128; // значение по умолчанию
+            // Логика извлечения числа яркости из объекта параметров
+            return parameters?.ToString() ?? "100";
         }
     }
 }

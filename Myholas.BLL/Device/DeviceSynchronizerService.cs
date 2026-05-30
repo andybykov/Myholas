@@ -1,116 +1,126 @@
 ﻿using Myholas.Core.Dtos;
+using Myholas.Core.Dtos.Devices;
 using Myholas.Core.Dtos.ESPDevices;
 using Myholas.Core.Interfaces;
-using Myholas.Core.Models.Output;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace Myholas.BLL.Device
 {
     // Синхронизатор устройств с БД
-    // Слушает device.updated и сохраняет конфигурации в БД
-    // EspDeviceDto в DeviceEntityDto 
+    // Слушает device.updated и config.received, обновляет данные устройств и сущностей в БД
+    // EspDeviceDto / BaseEntityConfigDto в DeviceDto + EntityDto
     public class DeviceSynchronizerService
     {
-        private readonly IEventBus _eventBus;
+        private readonly IEventBus _eventBus;    
+        private readonly IDeviceRepository _deviceRep;
 
-        private readonly IDeviceManager _deviceManager;
-
-        public DeviceSynchronizerService(IEventBus eventBus, IDeviceManager deviceManager)
+        public DeviceSynchronizerService(IEventBus eventBus, IDeviceRepository deviceRep)
         {
             _eventBus = eventBus;
-            _deviceManager = deviceManager;
+            _deviceRep = deviceRep;
 
-            // event on MqttToEventBusBridge
+
             _eventBus.Listen("device.updated", OnDeviceUpdated);
-           // _eventBus.Listen("device.updated", OnConfigReceived);      
+            _eventBus.Listen("config.received", OnConfigReceived);
         }
 
-        // Обработчик конфигурации 
+        // Обработчик конфигурации конкретной сущности
         private async void OnConfigReceived(string eventType, string data)
         {
             try
             {
-                var config = JsonSerializer.Deserialize<BaseEntityConfigDto>(data);
-                if (config == null)
-                    return;
+                // Парсим обертку (DeviceId + Config)
+                var wrapper = JsonSerializer.Deserialize<ConfigWrapper>(data);
+                if (wrapper == null || wrapper.Config == null) return;
 
-                string? entityId = config.EntityId;
+                var config = wrapper.Config;
+                string deviceId = wrapper.DeviceId;
 
-                EntityOutputModel? model = await _deviceManager.GetEntityByIdAsync(entityId);
+                // Минимальный DTO устройства для связи
+                var deviceDto = new DeviceDto { DeviceId = deviceId };
 
-                if (model != null)
+                // Данные сущности из конфига
+                var entityDto = new EntityDto
                 {
-                    switch (config)
-                    {
-                        case LightEntityConfigDto ld:
-                            break;
+                    EntityId = config.EntityId ?? $"{config.Domain}.{config.ObjectId}",
+                    Domain = config.Domain ?? "unknown",
+                    FriendlyName = config.Name ?? config.ObjectId,
+                    StateTopic = config.StateTopic,
+                    CommandTopic = config.CommandTopic,
+                    AttributesJson = SerializeAttributes(config)
+                };
 
-                        case SensorEntityConfigDto sd:
-                            model.UnitOfMeasurement = sd.UnitOfMeasurement;
-                            break;
-                        case SelectEntityConfigDto sl:
-                            model.Options = sl.Options.ToList() ?? null;
-                            break;
-                        default:
-                            break;
-
-
-                    }
-                    // Пока просто лог
-                    Console.WriteLine($"[DeviceSynchronizer] Config received for {entityId}");
+                // Спец. поля для сенсоров
+                if (config is SensorEntityConfigDto sensor)
+                {
+                    entityDto.UnitOfMeasurement = sensor.UnitOfMeasurement;
                 }
 
+                // В БД
+                await _deviceRep.AddOrUpdateEntityAsync(deviceDto, entityDto);
             }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[DeviceSynchronizer] Config error: {ex.Message}");
-            }
+            catch (Exception ex) { Console.WriteLine($"Error: {ex.Message}"); }
         }
 
-        // Обработчик обновления устройства из MQTT discovery
+        // Обработчик обновления всего устройства (из MQTT discovery)
         private async void OnDeviceUpdated(string eventType, string data)
         {
             try
             {
-                // data — сериализованный EspDeviceDto
                 EspDeviceDto? espDevice = JsonSerializer.Deserialize<EspDeviceDto>(data);
-                if (espDevice == null)
-                    return;
+                if (espDevice == null || string.IsNullOrEmpty(espDevice.Name)) return;
 
-                // Преобразуем EspDeviceDto в DeviceEntityDto 
-                // для каждой entity внутри espDevice.Entities создать DeviceEntityDto
-                foreach (var entityConfig in espDevice.Entities)
+                // Данные самой железки
+                var deviceDto = new DeviceDto
                 {
-                    var deviceEntity = new DeviceEntityDto
-                    {
-                        EntityId = $"{entityConfig.Domain}.{entityConfig.ObjectId}",
-                        DeviceId = espDevice.Name,
-                        Domain = entityConfig.Domain,
-                        FriendlyName = entityConfig.Name ?? entityConfig.ObjectId,
-                        IpAdress = espDevice.Ip,
-                        CommandTopic = entityConfig.CommandTopic,
-                        StateTopic = entityConfig.StateTopic,
-                        //CurrentState 
-                        UnitOfMeasurement = GetUnitOfMeasurement(entityConfig),
-                        AttributesJson = SerializeAttributes(entityConfig),
-                        IsAvailable = true,
-                        LastSeen = DateTime.UtcNow,
-                        CreatedAt = DateTime.UtcNow,
-                        UpdatedAt = DateTime.UtcNow
-                    };
+                    DeviceId = espDevice.Name,
+                    FriendlyName = espDevice.FriendlyName,
+                    IpAddress = espDevice.Ip,
+                    Version = espDevice.Version,
+                    IsOnline = true,
+                    LastSeen = DateTime.UtcNow
+                };
 
-                    await _deviceManager.AddOrUpdateAsync(deviceEntity);
+                // Если есть список сущностей
+                if (espDevice.Entities != null && espDevice.Entities.Any())
+                {
+                    // бновляем каждую
+                    foreach (var entityConfig in espDevice.Entities)
+                    {
+                        var entityDto = new EntityDto
+                        {
+                            EntityId = $"{entityConfig.Domain}.{entityConfig.ObjectId}",
+                            Domain = entityConfig.Domain ?? "unknown",
+                            FriendlyName = entityConfig.Name ?? entityConfig.ObjectId,
+                            StateTopic = entityConfig.StateTopic,
+                            CommandTopic = entityConfig.CommandTopic,
+                            AttributesJson = SerializeAttributes(entityConfig)
+                        };
+
+                        if (entityConfig is SensorEntityConfigDto sensor)
+                        {
+                            entityDto.UnitOfMeasurement = sensor.UnitOfMeasurement;
+                        }
+
+                        // Связка Устройство + Сущность в БД
+                        await _deviceRep.AddOrUpdateEntityAsync(deviceDto, entityDto);
+                    }
+                }
+                else
+                {
+                    // Если сущностей нет
+                    var emptyEntity = new EntityDto { EntityId = "system.device_info" }; // заглушка
+                    await _deviceRep.AddOrUpdateEntityAsync(deviceDto, emptyEntity);
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[DeviceSynchronizer] Error: {ex.Message}");
+                Console.WriteLine($"[DeviceSynchronizer] Update error: {ex.Message}");
             }
         }
 
-
-        // Заполнение поля Attributes
+        // JSON атрибуты из конфига 
         private string? SerializeAttributes(BaseEntityConfigDto config)
         {
             if (config == null)
@@ -122,7 +132,7 @@ namespace Myholas.BLL.Device
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase
             };
 
-            // select: сериализуем весь объект
+            // Собираем нужные поля в зависимости от типа
             if (config is SelectEntityConfigDto select)
             {
                 var subset = new { select.Options };
@@ -131,7 +141,6 @@ namespace Myholas.BLL.Device
 
             if (config is SensorEntityConfigDto sensor)
             {
-
                 var subset = new { sensor.UnitOfMeasurement, sensor.DeviceClass };
                 return JsonSerializer.Serialize(subset, options);
             }
@@ -144,21 +153,12 @@ namespace Myholas.BLL.Device
 
             return null;
         }
+    }
 
-        // GetUnitOfMeasurement
-        private string? GetUnitOfMeasurement(BaseEntityConfigDto config)
-        {
-            if (config == null)
-                return null;
-
-            if (config is SensorEntityConfigDto sensor)
-            {
-                var s = sensor.UnitOfMeasurement;
-
-                return sensor.UnitOfMeasurement.ToString() ?? null;
-            }
-
-            return null;
-        }
+    // Контейнер для передачи DeviceId + Config
+    public class ConfigWrapper
+    {
+        public string DeviceId { get; set; }
+        public BaseEntityConfigDto Config { get; set; }
     }
 }

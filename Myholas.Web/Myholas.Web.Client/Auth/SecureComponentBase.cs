@@ -52,7 +52,7 @@ namespace Myholas.Web.Client.Auth
                     try
                     {
                         // Запрашиваем полные данные пользователя из API
-                        var userData = await Api.GetUserByUsernameAsync(username);
+                        var userData = await Api.GetUserByNameAsync(username);
                         if (userData != null)
                         {
                             CurrentUser = userData;

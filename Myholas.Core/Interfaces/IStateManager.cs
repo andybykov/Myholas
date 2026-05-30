@@ -1,4 +1,4 @@
-﻿using Myholas.Core.Dtos;
+﻿using Myholas.Core.Dtos.Devices;
 using Myholas.Core.Models.Output;
 
 namespace Myholas.Core.Interfaces
@@ -16,7 +16,7 @@ namespace Myholas.Core.Interfaces
         Task InitializeCacheAsync();
 
         // Обновить состояние
-        Task UpdateStateAsync(StateEntityDto stateDto);   
+        Task UpdateStateAsync(string deviceId, StateEntityDto stateDto);
     }
 
 }

@@ -2,9 +2,10 @@
 using Microsoft.Extensions.DependencyInjection;
 using Myholas.Core;
 using Myholas.Core.Dtos;
+using Myholas.Core.Dtos.Devices;
 using Myholas.Core.Interfaces;
 using Npgsql;
-
+using System.Diagnostics;
 
 namespace Myholas.DAL.Repositories
 {
@@ -17,209 +18,141 @@ namespace Myholas.DAL.Repositories
             _scopeFactory = scopeFactory;
         }
 
-        //Получить устройство по EntityId
-        public async Task<DeviceEntityDto?> GetByIdAsync(string entityId)
+        // Получить сушность / EntityDto
+        public async Task<EntityDto?> GetByEntityIdAsync(string entityId)
         {
-            using (var scope = _scopeFactory.CreateScope())
-            {
-                var context = scope.ServiceProvider.GetRequiredService<DataContext>();
-
-                return await context.Devices.FirstOrDefaultAsync(d => d.EntityId == entityId);
-            }
+            using var scope = _scopeFactory.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<DataContext>();
+            return await context.Entities.FirstOrDefaultAsync(e => e.EntityId == entityId);
         }
 
-        //Получить все устройства
-        public async Task<List<DeviceEntityDto>> GetAllAsync(bool includeUnavailable = false)
+        // Получить все физические устройства вместе с их датчиками
+        public async Task<List<DeviceDto>> GetAllDevicesAsync(bool includeUnavailable = false)
         {
-            using (var scope = _scopeFactory.CreateScope())
-            {
-                var context = scope.ServiceProvider.GetRequiredService<DataContext>();
-                var query = context.Devices.AsQueryable();
-                if (!includeUnavailable)
-                    query = query.Where(d => d.IsAvailable);
+            using var scope = _scopeFactory.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<DataContext>();
 
-                return await query.OrderBy(d => d.FriendlyName).ToListAsync();
-            }
+            var query = context.Devices.Include(d => d.Entities).AsQueryable();
+
+           
+            // фильтруем по физическому устройству
+            if (!includeUnavailable)
+                query = query.Where(d => d.IsOnline == true);
+
+            return await query.OrderBy(d => d.FriendlyName).ToListAsync();
         }
 
-        //Получить устройства по домену (switch, sensor, light, select)
-        public async Task<List<DeviceEntityDto>> GetByDomainAsync(string domain)
+        // Получить все сущности по домену (switch, sensor, light, select)
+        public async Task<List<EntityDto>> GetByDomainAsync(string domain)
         {
-            using (var scope = _scopeFactory.CreateScope())
-            {
-                var context = scope.ServiceProvider.GetRequiredService<DataContext>();
+            using var scope = _scopeFactory.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<DataContext>();
 
-                return await context.Devices.Where(d => d.Domain == domain).ToListAsync();
-            }
+            return await context.Entities
+                .Where(e => e.Domain == domain)
+                .ToListAsync();
         }
 
-        //Получить устройства по физическому ID
-        public async Task<List<DeviceEntityDto>> GetByDeviceIdAsync(string deviceId)
+        // Получить физическое устройство по его DeviceID 
+        public async Task<DeviceDto?> GetByDeviceIdAsync(string deviceId)
         {
-            using (var scope = _scopeFactory.CreateScope())
-            {
-                var context = scope.ServiceProvider.GetRequiredService<DataContext>();
-
-                return await context.Devices.Where(d => d.DeviceId == deviceId).ToListAsync();
-            }
+            using var scope = _scopeFactory.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<DataContext>();
+            return await context.Devices
+                .Include(d => d.Entities)
+                .FirstOrDefaultAsync(d => d.DeviceId == deviceId);
         }
 
-
-        // Добавить новое устройство или обновить существующее
-
-        // МЕТОД пытается бороться RACE CONDITION
-        //  при параллельных вызовах для одного EntityId 
-        // оба потока могут пройти проверку AnyAsync() и попытаться вставить новую запись....
-        // получаем исключени: "PG 23505" нарушение PK_Devices!
-
-        // НО навреное лучше использовать даппер....
-
-        public async Task<DeviceEntityDto> AddOrUpdateAsync(DeviceEntityDto entity)
+        // Создает устройство и сущность
+        public async Task<EntityDto> AddOrUpdateEntityAsync(DeviceDto deviceDto, EntityDto entityDto)
         {
-            using (var scope = _scopeFactory.CreateScope())
+            using var scope = _scopeFactory.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<DataContext>();
+
+            while (true)
             {
-                var context = scope.ServiceProvider.GetRequiredService<DataContext>();
-
-                DeviceEntityDto? existing = null;
-                bool saved = false;
-
-                while (!saved)
-                {
-                    // Загружаем существующую запись
-                    existing = await context.Devices
-                        .AsTracking()
-                        .FirstOrDefaultAsync(d => d.EntityId == entity.EntityId);
-
-                    if (existing != null)
+                try
+                {  
+                    // УСТРОЙСТВО
+                    var device = await context.Devices.FirstOrDefaultAsync(d => d.DeviceId == deviceDto.DeviceId); // тот же ID
+                    if (device == null)
                     {
-                        // копируем все поля из entity
-                        context.Entry(existing).CurrentValues.SetValues(entity);
-                        existing.UpdatedAt = DateTime.UtcNow; // CreatedAt исходное
-
+                        device = deviceDto;
+                        await context.Devices.AddAsync(device);
+                        
+                        await context.SaveChangesAsync();
                     }
                     else
                     {
-                        // Новая запись
-                        entity.CreatedAt = DateTime.UtcNow;
-                        await context.Devices.AddAsync(entity);
-                    }
+                        // НЕ NULL поля
+                        if (!string.IsNullOrEmpty(deviceDto.FriendlyName)) device.FriendlyName = deviceDto.FriendlyName;
+                        if (!string.IsNullOrEmpty(deviceDto.IpAddress)) device.IpAddress = deviceDto.IpAddress;
+                        if (!string.IsNullOrEmpty(deviceDto.Version)) device.Version = deviceDto.Version;
+                        device.IsOnline = deviceDto.IsOnline;
+                        device.LastSeen = DateTime.UtcNow;
 
-                    try
-                    {
                         await context.SaveChangesAsync();
-                        saved = true; // сохранено
                     }
-                    // 23505 = duplicate key value violates unique constraint
-                    catch (DbUpdateException ex) when (ex.InnerException is PostgresException pgEx && pgEx.SqlState == "23505")
+
+                    // СУЩНОСТЬ
+                    var entity = await context.Entities.FirstOrDefaultAsync(e => e.EntityId == entityDto.EntityId);
+                    if (entity == null)
                     {
-                        Console.WriteLine($"[AddOrUpdate] Conflict for {entity.EntityId}, retrying...");
-                        context.ChangeTracker.Clear();
+                        entityDto.DeviceId = device.Id; // Привязываем к Id устройства
+                        entity = entityDto;
+                        await context.Entities.AddAsync(entity);
                     }
-                    catch (Exception ex)
+                    else
                     {
-                        Console.WriteLine($"[AddOrUpdate] Unexpected error: {ex.Message}");
-                        throw;
+                        // только заполненные поля
+                        if (!string.IsNullOrEmpty(entityDto.FriendlyName)) entity.FriendlyName = entityDto.FriendlyName;
+                        if (!string.IsNullOrEmpty(entityDto.Domain)) entity.Domain = entityDto.Domain;
+                        if (!string.IsNullOrEmpty(entityDto.StateTopic)) entity.StateTopic = entityDto.StateTopic;
+                        if (!string.IsNullOrEmpty(entityDto.CommandTopic)) entity.CommandTopic = entityDto.CommandTopic;
+                        if (!string.IsNullOrEmpty(entityDto.UnitOfMeasurement)) entity.UnitOfMeasurement = entityDto.UnitOfMeasurement;
+                        if (!string.IsNullOrEmpty(entityDto.AttributesJson)) entity.AttributesJson = entityDto.AttributesJson;
+
+                        entity.DeviceId = device.Id;
                     }
+
+                    await context.SaveChangesAsync();
+
+                  
+                    return entity;
                 }
-
-                return existing ?? entity;
-            }
+                catch (DbUpdateException ex) when (ex.InnerException is PostgresException pgEx && pgEx.SqlState == "23505")
+                {
+                    // При конфликте ключей очищаем трекер и пробуем снова для избежания "23505"
+                    Console.WriteLine($"[DeviceRepo] Conflict detected for {entityDto.EntityId}, retrying...");
+                    context.ChangeTracker.Clear();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[DeviceRepo] Unexpected error: {ex.Message}");
+                    throw;
+                }
+            }           
         }
 
-        //Удалить устройство по EntityId
-        public async Task<bool> DeleteAsync(string entityId)
+        // Удаление
+        public async Task<bool> DeleteEntityAsync(string entityId)
         {
-            using (var scope = _scopeFactory.CreateScope())
-            {
-                var context = scope.ServiceProvider.GetRequiredService<DataContext>();
-                var device = await context.Devices.FirstOrDefaultAsync(d => d.EntityId == entityId);
-                if (device == null) return false;
-                context.Devices.Remove(device);
-                await context.SaveChangesAsync();
-                return true;
-            }
+            using var scope = _scopeFactory.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<DataContext>();
+            var entity = await context.Entities.FirstOrDefaultAsync(e => e.EntityId == entityId);
+            if (entity == null) return false;
+
+            context.Entities.Remove(entity);
+            await context.SaveChangesAsync();
+            return true;
         }
 
-        //Проверить существование устройства
+        // существует ли
         public async Task<bool> ExistsAsync(string entityId)
         {
-            using (var scope = _scopeFactory.CreateScope())
-            {
-                var context = scope.ServiceProvider.GetRequiredService<DataContext>();
-                return await context.Devices.AnyAsync(d => d.EntityId == entityId);
-            }
-        }
-
-        // STATES!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! in state repo!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-      
-        //Обновить текущее состояние устройства и добавить запись в историю
-        public async Task UpdateStateAsync(StateEntityDto stateEntity)
-        {
-            using (var scope = _scopeFactory.CreateScope())
-            {
-                var context = scope.ServiceProvider.GetRequiredService<DataContext>();
-                var device = await context.Devices.FirstOrDefaultAsync(d => d.EntityId == stateEntity.EntityId);
-                if (device != null)
-                {
-                    device.CurrentState = stateEntity.State;
-                    device.LastSeen = DateTime.UtcNow;
-                    device.UpdatedAt = DateTime.UtcNow;
-                    if (!string.IsNullOrEmpty(stateEntity.AttributesJson))
-                        device.AttributesJson = stateEntity.AttributesJson;
-
-                    var historyEntry = new StateEntityDto
-                    {
-                        EntityId = stateEntity.EntityId,
-                        State = stateEntity.State,
-                        AttributesJson = stateEntity.AttributesJson,
-                        CreatedAt = DateTime.UtcNow
-                    };
-                    await context.States.AddAsync(historyEntry);
-                    await context.SaveChangesAsync();
-                }
-            }
-        }
-
-        //Получить историю состояний устройства
-        public async Task<List<StateEntityDto>> GetStatesByEntityIdAsync(string entityId, int limit = 100)
-        {
-            using (var scope = _scopeFactory.CreateScope())
-            {
-                var context = scope.ServiceProvider.GetRequiredService<DataContext>();
-                return await context.States
-                    .Where(s => s.EntityId == entityId)
-                    .OrderByDescending(s => s.CreatedAt)
-                    .Take(limit)
-                    .ToListAsync();
-            }
-        }
-
-        //Добавить запись состояния
-        public async Task AddStateAsync(StateEntityDto stateEntity)
-        {
-            using (var scope = _scopeFactory.CreateScope())
-            {
-                var context = scope.ServiceProvider.GetRequiredService<DataContext>();
-                stateEntity.CreatedAt = DateTime.UtcNow;
-                await context.States.AddAsync(stateEntity);
-                await context.SaveChangesAsync();
-            }
-        }
-
-        //Обновить статус доступности устройства
-        public async Task UpdateAvailabilityAsync(DeviceEntityDto deviceDto)
-        {
-            using (var scope = _scopeFactory.CreateScope())
-            {
-                var context = scope.ServiceProvider.GetRequiredService<DataContext>();
-                var device = await context.Devices.FirstOrDefaultAsync(d => d.EntityId == deviceDto.EntityId);
-                if (device != null)
-                {
-                    device.IsAvailable = deviceDto.IsAvailable;
-                    device.UpdatedAt = DateTime.UtcNow;
-                    await context.SaveChangesAsync();
-                }
-            }
+            using var scope = _scopeFactory.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<DataContext>();
+            return await context.Entities.AnyAsync(e => e.EntityId == entityId);
         }
     }
 }

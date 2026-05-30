@@ -1,4 +1,4 @@
-﻿using Myholas.Core.Dtos;
+﻿using Myholas.Core.Dtos.Automations;
 using System.Text.Json;
 
 namespace Myholas.Core.Automation

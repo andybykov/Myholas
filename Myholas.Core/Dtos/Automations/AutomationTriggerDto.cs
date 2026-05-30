@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Myholas.Core.Dtos
+namespace Myholas.Core.Dtos.Automations
 {
     public class AutomationTriggerDto
     {

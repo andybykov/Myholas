@@ -1,50 +1,45 @@
-﻿using Myholas.Core.Dtos;
+﻿using Myholas.Core.Dtos.Devices;
 
 namespace Myholas.Core.Interfaces
 {
     public interface IDeviceRepository
     {
-        //Получить устройство по EntityId
-        Task<DeviceEntityDto?> GetByIdAsync(string entityId);
+        /// <summary>
+        /// Получить объект EntityDto по его уникальному идентификатору (EntityId).
+        /// </summary>
+        Task<EntityDto?> GetByEntityIdAsync(string entityId);
+
+        /// <summary>
+        /// Получить список всех физических устройств с их датчиками.
+        /// При <c>includeUnavailable = false</c> возвращаются только онлайн‑устройства.
+        /// </summary>
+        Task<List<DeviceDto>> GetAllDevicesAsync(bool includeUnavailable = false);
+
+        /// <summary>
+        /// Получить конкретное физическое устройство по его DeviceId (например, «esp‑lamp01»).
+        /// </summary>
+        Task<DeviceDto?> GetByDeviceIdAsync(string deviceId);
 
 
-        // Получить все устройства
-        Task<List<DeviceEntityDto>> GetAllAsync(bool includeUnavailable = false);
+        // Получить все сущности по домену (switch, sensor, light, select)
+        Task<List<EntityDto>> GetByDomainAsync(string domain);
 
+        /// <summary>
+        /// Создать новое устройство/датчик или обновить существующее.
+        /// Возвращает сохранённый <c>EntityDto</c>.
+        /// </summary>
+        Task<EntityDto> AddOrUpdateEntityAsync(DeviceDto deviceInfo, EntityDto entityInfo);
 
-        // Получить устройства по домену (switch, sensor, light, select)
-        Task<List<DeviceEntityDto>> GetByDomainAsync(string domain);
+        /// <summary>
+        /// Удалить сущность (датчик) по её EntityId.
+        /// Возвращает <c>true</c>, если удаление прошло успешно.
+        /// </c>true</c> в противном случае.
+        /// </summary>
+        Task<bool> DeleteEntityAsync(string entityId);
 
-
-        // Получить устройства по ID физического устройства
-        Task<List<DeviceEntityDto>> GetByDeviceIdAsync(string deviceId);
-
-
-        // Добавить новое устройство или обновить существующее
-        Task<DeviceEntityDto> AddOrUpdateAsync(DeviceEntityDto entity);
-
-
-        // Удалить устройство
-        Task<bool> DeleteAsync(string entityId);
-
-
-        // Проверить существование устройства
+        /// <summary>
+        /// Проверить, существует ли сущность с заданным EntityId.
+        /// </summary>
         Task<bool> ExistsAsync(string entityId);
-
-
-        // Обновить состояние устройства и добавить запись в историю
-        Task UpdateStateAsync(StateEntityDto stateEntity);
-
-
-        // Получить историю состояний устройства
-        Task<List<StateEntityDto>> GetStatesByEntityIdAsync(string entityId, int limit = 100);
-
-
-        // Добавить только запись состояния (без обновления CurrentState)
-        Task AddStateAsync(StateEntityDto stateEntity);
-
-
-        // Обновить статус доступности устройства
-        Task UpdateAvailabilityAsync(DeviceEntityDto deviceDto);
     }
 }

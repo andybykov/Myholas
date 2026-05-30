@@ -1,7 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Myholas.Core;
-using Myholas.Core.Dtos;
+using Myholas.Core.Dtos.Users;
 using Myholas.Core.Interfaces;
 using static Myholas.Core.Enums;
 

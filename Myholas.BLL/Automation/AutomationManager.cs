@@ -1,132 +1,125 @@
-﻿using Myholas.Core.Automation;
-using Myholas.Core.Dtos;
+﻿using AutoMapper;
+using Myholas.Core.Automation;
+using Myholas.Core.Dtos.Automations;
 using Myholas.Core.Interfaces;
+using Myholas.Core.Models.Input;
+using Myholas.Core.Models.Output;
 
 namespace Myholas.BLL.Automation
 {
-    /// <summary>
-    /// Manager работы с automation 
-    /// </summary>
+    // Manager работы с automation 
     public class AutomationManager : IAutomationManager
     {
-        private readonly IAutomationRepository _repository;
+        private readonly IAutomationRepository _autoRepo;
+        private readonly IDeviceRepository _deviceRepo;
+        private readonly IMapper _mapper;
+        private readonly IEventBus _eventBus;
 
-
-        public AutomationManager(
-            IAutomationRepository repository)
+        public AutomationManager(IAutomationRepository autoRepo, IDeviceRepository deviceRepo, IMapper mapper, IEventBus eventBus)
         {
-            _repository = repository;
+            _autoRepo = autoRepo;
+            _deviceRepo = deviceRepo;
+            _mapper = mapper;
+            _eventBus = eventBus;
         }
-
-
 
         // Получить по ID
-        public async Task<AutomationEntityDto?> GetByIdAsync(int id)
+        public async Task<AutomationOutputModel?> GetByIdAsync(int id)
         {
-            return await _repository.GetByIdAsync(id);
-        }
+            var automation = await _autoRepo.GetByIdAsync(id);
 
-
-        // Получить все 
-        public async Task<List<AutomationEntityDto>> GetAllAsync(bool includeDisabled = false)
-        {
-            return await _repository.GetAllAsync(
-                includeDisabled);
-        }
-
-
-        // Получить только enabled automation
-        public async Task<List<AutomationEntityDto>> GetEnabledAsync()
-        {
-            return await _repository.GetEnabledAsync();
-        }
-
-
-        // Создание automation
-        public async Task<AutomationEntityDto> AddAsync(AutomationEntityDto dto)
-        {
-            ValidateAutomation(dto);
-
-            dto.CreatedAt = DateTime.UtcNow;
-
-            var created =
-                await _repository.AddAsync(dto);
-
-            return created;
-        }
-
-
-        // Обновление automation
-        public async Task<AutomationEntityDto?> UpdateAsync(int id, AutomationEntityDto dto)
-        {
-            var existing =
-                await _repository.GetByIdAsync(id);
-
-            if (existing == null)
+            if (automation == null)
                 return null;
 
+            return _mapper.Map<AutomationOutputModel>(automation);
+        }
+
+        // Получить все 
+        public async Task<List<AutomationOutputModel>> GetAllAsync(bool includeDisabled = false)
+        {
+            var automations = await _autoRepo.GetAllAsync(includeDisabled);
+            return _mapper.Map<List<AutomationOutputModel>>(automations);
+        }
+
+        // Получить только enabled automation
+        public async Task<List<AutomationOutputModel>> GetEnabledAsync()
+        {
+            var automations = await _autoRepo.GetEnabledAsync();
+            return _mapper.Map<List<AutomationOutputModel>>(automations);
+        }
+
+        // Создание automation
+        public async Task<AutomationOutputModel> AddAsync(AutomationInputModel input)
+        {
+            // Маппим в DTO для валидации
+            var dto = _mapper.Map<AutomationEntityDto>(input);
+            ValidateAutomation(dto);
+
+            //  ID сущности по строковому имени
+            var entity = await _deviceRepo.GetByEntityIdAsync(input.EntityId);
+            if (entity == null)
+                throw new Exception($"Entity {input.EntityId} not found!");
+
+            // Привязываем  ID и дату
+            dto.EntityId = entity.Id;
+            dto.CreatedAt = DateTime.UtcNow;
+
+            var created = await _autoRepo.AddAsync(dto);
+
+            _eventBus.Emit("automation.created", created.Id.ToString());
+
+            return _mapper.Map<AutomationOutputModel>(created);
+        }
+
+        // Обновление automation
+        public async Task<AutomationOutputModel?> UpdateAsync(int id, AutomationInputModel input)
+        {
+            var existing = await _autoRepo.GetByIdAsync(id);
+            if (existing == null) return null;
+
+            // Находим ID сущности для обновления
+            var entity = await _deviceRepo.GetByEntityIdAsync(input.EntityId);
+            if (entity == null) throw new Exception("Entity not found");
+
+            var dto = _mapper.Map<AutomationEntityDto>(input);
             ValidateAutomation(dto);
 
             dto.Id = id;
-
+            dto.EntityId = entity.Id; // Привязываем к правильному ID
             dto.CreatedAt = existing.CreatedAt;
-
             dto.UpdatedAt = DateTime.UtcNow;
 
-            var updated = await _repository.UpdateAsync(dto);
+            var updated = await _autoRepo.UpdateAsync(dto);
 
+            _eventBus.Emit("automation.updated", updated.Id.ToString());
 
-            return updated;
+            return _mapper.Map<AutomationOutputModel>(updated);
         }
-
-
 
         // Удаление automation
-
         public async Task<bool> DeleteAsync(int id)
         {
-            var deleted =
-                await _repository.DeleteAsync(id);
+            _eventBus.Emit("automation.deleted", id.ToString());
 
-            if (!deleted)
-                return false;
-
-            return true;
+            return await _autoRepo.DeleteAsync(id);
         }
-
 
         // Включение / выключение automation
-
-        public async Task<bool> SetEnabledAsync(
-            int id,
-            bool enabled)
+        public async Task<bool> SetEnabledAsync(int id, bool enabled)
         {
-            var result =
-                await _repository.SetEnabledAsync(
-                    id,
-                    enabled);
-
-            if (!result)
-                return false;
-
-            return true;
+            return await _autoRepo.SetEnabledAsync(id, enabled);
         }
 
-
-
         // Валидация automation
-
         private void ValidateAutomation(AutomationEntityDto dto)
         {
             if (string.IsNullOrWhiteSpace(dto.Name))
             {
-                throw new Exception(
-                    "Automation name required");
+                throw new Exception("Automation name required");
             }
 
             // triggers required
             var triggers = dto.GetTriggers();
-
             if (!triggers.Any())
             {
                 throw new Exception("At least one trigger required");
@@ -134,7 +127,6 @@ namespace Myholas.BLL.Automation
 
             // actions required
             var actions = dto.GetActions();
-
             if (!actions.Any())
             {
                 throw new Exception("At least one action required");
@@ -143,8 +135,7 @@ namespace Myholas.BLL.Automation
             // validate triggers
             foreach (var trigger in triggers)
             {
-                if (string.IsNullOrWhiteSpace(
-                    trigger.EntityId))
+                if (string.IsNullOrWhiteSpace(trigger.EntityId))
                 {
                     throw new Exception("Trigger entity required");
                 }
@@ -160,22 +151,17 @@ namespace Myholas.BLL.Automation
             {
                 if (action.Type == "command")
                 {
-                    if (string.IsNullOrWhiteSpace(
-                        action.EntityId))
+                    if (string.IsNullOrWhiteSpace(action.EntityId))
                     {
-                        throw new Exception(
-                            "Action entity required");
+                        throw new Exception("Action entity required");
                     }
 
-                    if (string.IsNullOrWhiteSpace(
-                        action.Command))
+                    if (string.IsNullOrWhiteSpace(action.Command))
                     {
-                        throw new Exception(
-                            "Action command required");
+                        throw new Exception("Action command required");
                     }
                 }
             }
         }
-
     }
 }

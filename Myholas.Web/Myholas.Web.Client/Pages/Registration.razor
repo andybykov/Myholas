@@ -1,0 +1,186 @@
+﻿@page "/registration"
+
+@using Microsoft.AspNetCore.Authorization
+@using Myholas.Core.Dtos
+@using Myholas.Core.Models.Input
+@using Myholas.Core.Models.Output
+@using Myholas.Web.Client.Pages.Existions
+@using static Myholas.Core.Enums
+
+@* client rendering && disable pre-rendering *@
+@rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
+
+@inject NavigationManager Navigation
+@inherits SecureComponentBase
+
+    
+    <h3 class="text-center mb-4">Регистрация нового пользователя</h3>
+
+    @if (IsAuthenticated)
+    {
+        <div class="alert alert-info text-center">
+            Вы уже авторизованы как <strong>@CurrentUser?.Username</strong>. 
+            <br />Для регистрации нового пользователя, пожалуйста, выйдите из профиля.
+        </div>
+    <div class="mt-4 d-flex gap-2">
+        <a href="/devices" class="btn btn-success">Перейти к устройствам 🚀</a>
+        <button class="btn btn-danger" @onclick="Logout">Выйти из системы</button>
+    </div>
+    }
+    else
+    {
+        <div class="row justify-content-center">
+            <div class="col-md-8 col-lg-6">
+                <div class="card shadow p-lg-4">
+                    <div class="card-body">
+                        <EditForm Model="user" OnValidSubmit="OnSubmit" FormName="userRegistration">
+                            <DataAnnotationsValidator />
+
+                            <!-- Username -->
+                            <div class="mb-3">
+                                <label class="form-label">Имя пользователя *</label>
+                                <InputText @bind-Value="user.UserName" 
+                                           @bind-Value:after="CheckUsernameUnique" 
+                                           class="form-control" />
+                                <ValidationMessage For="@(() => user.UserName)" />
+                                @if (usernameExists)
+                                {
+                                    <div class="text-danger small">Этот логин уже занят</div>
+                                }
+                            </div>
+
+                            <!-- Password -->
+                            <div class="mb-3">
+                                <label class="form-label">Пароль *</label>
+                                <InputText type="password" @bind-Value="user.Password" class="form-control" />
+                                <ValidationMessage For="@(() => user.Password)" />
+                            </div>
+
+                            <!-- Role -->
+                            <div class="mb-3">
+                                <label class="form-label">Роль</label>
+                                <InputSelect @bind-Value="user.Role" class="form-select">
+                                    <option value="User">Пользователь</option>
+                                    <option value="Admin">Администратор</option>
+                                </InputSelect>
+                            </div>
+
+                            <!-- Active Status -->
+                            <div class="form-check mb-4">
+                                <InputCheckbox @bind-Value="user.IsActive" class="form-check-input" id="isActiveCheck" />
+                                <label class="form-check-label" for="isActiveCheck">
+                                    Активен по умолчанию
+                                </label>
+                            </div>
+
+                            <div class="d-flex justify-content-center m-0">
+                                <button type="submit" class="btn btn-primary w-40" disabled="@(isLoading || usernameExists)">
+                                    @if (isLoading)
+                                    {
+                                        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                        <span> Регистрация...</span>
+                                    }
+                                    else
+                                    {
+                                        <span>Зарегистрироваться</span>
+                                    }
+                                </button>
+                            </div>
+                        </EditForm>
+
+                        @if (!string.IsNullOrEmpty(message))
+                        {
+                            <div class="alert @alertClass mt-3 text-center">
+                                @message
+                            </div>
+                        }
+                    </div>
+                </div>
+                </div>
+            </div>
+        
+    }
+
+@code {
+    private UserEntityInputModel user = new();
+    private bool isLoading = false;
+    private string message = string.Empty;
+    private string alertClass = "alert-success";
+    private bool usernameExists = false;
+
+    protected override void OnInitialized()
+    {
+        user = new UserEntityInputModel
+        {
+            Role = UserRole.User, // Enum
+            IsActive = true
+        };
+    }
+
+    private async Task CheckUsernameUnique()
+    {
+        // Исправлено: user.UserName
+        if (string.IsNullOrWhiteSpace(user.UserName))
+        {
+            usernameExists = false;
+        }
+        else
+        {
+            // Передаем UserName в метод API
+            var existingUser = await Api.GetUserByNameAsync(user.UserName);
+            usernameExists = existingUser != null;
+        }
+        StateHasChanged();
+    }
+
+    private async Task OnSubmit()
+    {
+        if (usernameExists)
+        {
+            message = "Пожалуйста, выберите уникальное имя пользователя";
+            alertClass = "alert-danger";
+            return;
+        }
+
+        isLoading = true;
+        message = string.Empty;
+        StateHasChanged();
+
+        try
+        {
+            var success = await Api.CreateUserAsync(user);
+
+            if (success)
+            {
+                // Исправлено: user.UserName
+                message = $"Пользователь {user.UserName} успешно зарегистрирован!";
+                alertClass = "alert-success";
+                
+                await Task.Delay(2000);
+                Navigation.NavigateTo("/login");
+            }
+            else
+            {
+                message = "Ошибка при создании пользователя.";
+                alertClass = "alert-danger";
+            }
+        }
+        catch (Exception ex)
+        {
+            message = $"Критическая ошибка: {ex.Message}";
+            alertClass = "alert-danger";
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task Logout()
+    {               
+        await AuthProvider.MarkUserAsUnauthenticated();     
+        
+        Navigation.NavigateTo("/", forceLoad: true);
+    }
+}

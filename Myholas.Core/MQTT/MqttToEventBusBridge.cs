@@ -19,23 +19,19 @@ namespace Myholas.Core.MQTT
             _discoveryService = discoveryService;
 
             // Подписка на события от discovery сервиса
-            _discoveryService.DeviceUpdated += OnDeviceUpdated;
             _discoveryService.StateReceived += OnStateReceived;
             _discoveryService.CommandReceived += OnCommandReceived;
+            _discoveryService.DeviceUpdated += OnDeviceUpdated;
             _discoveryService.EntityConfigReceived += OnConfigRecived;
-
         }
 
         // Обработчик BaseEntityConfigDto ESPHome устройства
-        private void OnConfigRecived (BaseEntityConfigDto config)
+        private void OnConfigRecived(string deviceId, BaseEntityConfigDto config)
         {
-            var recived = "config.recived";
-            var json = JsonSerializer.Serialize (config);
-#if DEB
-            Console.WriteLine($"[BridgeToBus] Emitting config.recived for {config.Name}");
-#endif
-            _eventBus.Emit(recived, json);   
-
+            var recived = "config.received";
+            // Передаем оба параметра в JSON, чтобы менеджер их увидел
+            var data = JsonSerializer.Serialize(new { DeviceId = deviceId, Config = config });
+            _eventBus.Emit(recived, data);
         }
 
         // Обработчик EspDeviceDto ESPHome устройства
@@ -51,29 +47,20 @@ namespace Myholas.Core.MQTT
         }
 
         // Обработчик изменения состояния 
-        private void OnStateReceived(string entityId, string state)
+        private void OnStateReceived(string deviceId, string entityId, string state)
         {
             var changed = "state_changed";
-            var st = $"{entityId}:{state}";
-
-            var line = $"{changed},{st}";
-#if DEB
-            Console.WriteLine($"[BridgeToBus] : {line}");
-#endif
-            _eventBus.Emit(changed, st);
+            // Передаем через разделитель | чтобы StateManager мог распарсить
+            var data = $"{deviceId}|{entityId}:{state}";
+            _eventBus.Emit(changed, data);
         }
 
         // Обработчик получения команды
-        private void OnCommandReceived(string entityId, string state)
+        private void OnCommandReceived(string deviceId, string entityId, string state)
         {
             var msg = "command.recived";
-            var st = $"{entityId}:{state}";
-
-            var line = $"{msg},{st}";
-#if DEB
-            Console.WriteLine($"[BridgeToBus] : {line}");
-#endif
-            _eventBus.Emit(msg, st);
+            var data = $"{deviceId}|{entityId}:{state}";
+            _eventBus.Emit(msg, data);
         }
     }
 }

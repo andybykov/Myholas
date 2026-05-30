@@ -72,7 +72,7 @@
 
     private async Task RefreshState()
     {
-        var updated = await Api.GetCurrentStateAsync(Entity.EntityId);
+        var updated = await Api.GetStateAsync(Entity.EntityId);
         if (updated != null)
             Entity = updated;
         StateHasChanged();

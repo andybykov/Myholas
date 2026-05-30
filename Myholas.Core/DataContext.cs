@@ -1,5 +1,8 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Myholas.Core.Dtos;
+using Myholas.Core.Dtos.Automations;
+using Myholas.Core.Dtos.Devices;
+using Myholas.Core.Dtos.Users;
 
 namespace Myholas.Core
 {
@@ -7,20 +10,19 @@ namespace Myholas.Core
     public class DataContext : DbContext
     {
         // Подключаем DbSet's      
-        public DbSet<DeviceEntityDto> Devices { get; set; }
+        public DbSet<DeviceDto> Devices { get; set; }           // Физические устройства (ESP)
 
-        public DbSet<StateEntityDto> States { get; set; }
+        public DbSet<EntityDto> Entities { get; set; }         // Логические сущности (Датчики/Свет)
 
-        public DbSet<AutomationEntityDto> Automations { get; set; }
+        public DbSet<StateEntityDto> States { get; set; }       // История состояний
 
-        public DbSet<UserEntityDto> Users { get; set; }
+        public DbSet<AutomationEntityDto> Automations { get; set; } // Автоматизации
 
-        public DbSet<UserDeviceAccessDto> UserDeviceAccess { get; set; }
+        public DbSet<UserEntityDto> Users { get; set; }          // Пользователи
 
-        //public DbSet<RefreshTokenEntity> RefreshTokens { get; set; }
+        public DbSet<UserDeviceAccessDto> UserDeviceAccess { get; set; } // Права доступа
 
         public DataContext(DbContextOptions<DataContext> options) : base(options) { }
-
 
         // Переопределяем провайдер БД
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
@@ -31,35 +33,68 @@ namespace Myholas.Core
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
+            // 1. Настройка Device (Физическое устройство)
+            modelBuilder.Entity<DeviceDto>(entity =>
+            {
+                // DeviceId (строка, например "esp-lamp01") должна быть уникальной
+                entity.HasIndex(d => d.DeviceId).IsUnique();
+            });
+
+            // 2. Настройка Entity (Сущность/Датчик)
+            modelBuilder.Entity<EntityDto>(entity =>
+            {
+                // EntityId (строка, например "sensor.temp") должна быть уникальной
+                entity.HasIndex(e => e.EntityId).IsUnique();
+
+                // Связь: Одно устройство -> Много сущностей
+                entity.HasOne(e => e.Device)
+                    .WithMany(d => d.Entities)
+                    .HasForeignKey(e => e.DeviceId)
+                    .OnDelete(DeleteBehavior.Cascade); // Удалили устройство -> удалили все его датчики
+            });
+
+            // 3. Настройка State (История состояний)
             modelBuilder.Entity<StateEntityDto>(entity =>
             {
-                entity.Property(e => e.Id).UseIdentityColumn();
+                entity.Property(s => s.Id).UseIdentityColumn();
+
+                // Связь: Одна сущность -> Много состояний
+                entity.HasOne(s => s.Entity)
+                    .WithMany(e => e.States)
+                    .HasForeignKey(s => s.EntityId)
+                    .OnDelete(DeleteBehavior.Cascade); // Удалили датчик -> удалили историю
+
+                // Индекс для быстрой выборки истории по времени
+                entity.HasIndex(s => new { s.EntityId, s.CreatedAt });
             });
 
-            // DeviceEntityDto
-            modelBuilder.Entity<DeviceEntityDto>(entity =>
+            // 4. Настройка Automations (Автоматизации)
+            modelBuilder.Entity<AutomationEntityDto>(entity =>
             {
-                entity.HasIndex(d => d.EntityId).IsUnique();
-               // entity.HasIndex(d => d.DeviceId).IsUnique(); // альтернативный ключ
+                // Связь: Одна сущность -> Много автоматизаций
+                // Теперь автоматизация привязана к конкретному датчику/переключателю
+                entity.HasOne(a => a.Entity)
+                    .WithMany()
+                    .HasForeignKey(a => a.EntityId)
+                    .OnDelete(DeleteBehavior.Cascade); // Удалили датчик -> удалили автоматизацию
+
+                // Связь с пользователем (создателем)
+                entity.HasOne(a => a.CreatedByUser)
+                    .WithMany(u => u.Automations)
+                    .HasForeignKey(a => a.CreatedByUserId)
+                    .OnDelete(DeleteBehavior.SetNull); // Создатель удален -> автоматизация остается (null)
             });
 
+            // 5. Настройка User (Пользователи)
             modelBuilder.Entity<UserEntityDto>(entity =>
             {
                 entity.HasIndex(u => u.Username).IsUnique();
             });
 
-            modelBuilder.Entity<StateEntityDto>()
-                .HasIndex(s => new { s.EntityId, s.CreatedAt });
-
-            modelBuilder.Entity<StateEntityDto>()
-                .HasOne(s => s.Device)
-                .WithMany(d => d.States)
-                .HasForeignKey(s => s.EntityId)
-                .OnDelete(DeleteBehavior.Cascade);
-
-            // Настройка UserDeviceAccess
+            // 6. Настройка UserDeviceAccess (Права доступа)
             modelBuilder.Entity<UserDeviceAccessDto>(entity =>
             {
+                // Составной первичный ключ: один пользователь может иметь одну запись прав на одно устройство
                 entity.HasKey(uda => new { uda.UserId, uda.DeviceId });
 
                 entity.HasOne(uda => uda.User)
@@ -70,21 +105,9 @@ namespace Myholas.Core
                 entity.HasOne(uda => uda.Device)
                     .WithMany(d => d.UserAccess)
                     .HasForeignKey(uda => uda.DeviceId)
-                    .HasPrincipalKey(d => d.DeviceId)   // важно: DeviceId как альтернативный ключ
-                    .OnDelete(DeleteBehavior.Cascade);
-
-                
+                    .OnDelete(DeleteBehavior.Cascade); // Удалили устройство -> удалили права доступа к нему
 
                 entity.HasIndex(uda => uda.GrantedByUserId);
-            });
-
-            // Настройка связи Automation -> User (CreatedByUser)
-            modelBuilder.Entity<AutomationEntityDto>(entity =>
-            {
-                entity.HasOne(a => a.CreatedByUser)
-                    .WithMany(u => u.Automations)
-                    .HasForeignKey(a => a.CreatedByUserId)
-                    .OnDelete(DeleteBehavior.SetNull); // или Cascade
             });
 
             base.OnModelCreating(modelBuilder);

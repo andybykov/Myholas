@@ -1,4 +1,4 @@
-﻿using Myholas.Core.Dtos;
+﻿using Myholas.Core.Dtos.Users;
 using System;
 using System.Collections.Generic;
 using System.Linq;

@@ -2,7 +2,7 @@
 {
 
     // Группа cущностей, одного физического устройствва 
-    public class DeviceOutputModels
+    public class DeviceOutputModel
     {
         public string DeviceId { get; set; } = ""; // "esp-lamp01"
 

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Myholas.Core.Dtos.Automations;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -7,7 +8,7 @@ using System.Text;
 using System.Threading.Tasks;
 using static Myholas.Core.Enums;
 
-namespace Myholas.Core.Dtos
+namespace Myholas.Core.Dtos.Users
 {
     [Table("Users")]
     public class UserEntityDto

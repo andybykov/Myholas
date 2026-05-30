@@ -1,6 +1,7 @@
 ﻿#define DEB
 using AutoMapper;
 using Myholas.Core.Dtos;
+using Myholas.Core.Dtos.Devices;
 using Myholas.Core.Dtos.ESPDevices;
 using Myholas.Core.Interfaces;
 using Myholas.Core.Models.Output;
@@ -8,18 +9,13 @@ using System.Text.Json;
 
 namespace Myholas.BLL.State
 {
-
-    // Управляет состояниями устройств и связью их с БД    
+    // Управляет состояниями устройств, кэшированием и связью с БД
     public class StateManager : IStateManager
     {
         private readonly IEventBus _eventBus;
-
-        private readonly IStateMachine _stateMachine;
-
+        private readonly IStateMachine _stateMachine; // Кэш: Key = string entityId, Value = StateEntityDto
         private readonly IStateRepository _stateRepo;
-
         private readonly IDeviceRepository _deviceRepo;
-
         private readonly IMapper _mapper;
 
         public StateManager(IEventBus eventBus, IStateMachine stateMachine, IStateRepository stateRepo, IDeviceRepository deviceRepo, IMapper mapper)
@@ -30,133 +26,131 @@ namespace Myholas.BLL.State
             _deviceRepo = deviceRepo;
             _mapper = mapper;
 
-            //  из MqttToEventBusBridge
+            // Подписка на изменение состояния
             _eventBus.Listen("state_changed", OnStateChanged);
-           // _eventBus.Listen("command.recived", OnCommandReceived);
         }
 
-        // Обработчик изменения состояния (из MqttToEventBusBridge)   
+        // Обработчик изменения состояния (из MqttToEventBusBridge)
         private async void OnStateChanged(string eventType, string data)
         {
 #if DEB
             Console.WriteLine($"[STATE MANAGER] OnStateChanged: {data}");
 #endif
-
-            string? entityId;
-            string? newState;
-
-            var light = data.StartsWith("light");
-            if (!light)
+            try
             {
-                // "switch.lamp01:on"
-                var parts = data.Split(':');
-                
-                entityId = parts[0];
-                newState = parts[1];
+                // "deviceId|entityId:payload"
+                var parts = data.Split('|');
+                if (parts.Length < 2) return;
 
-                // Получаем последний DTO из кэша или создаем 
-                var stateDto = _stateMachine.Get(entityId) ?? new StateEntityDto { EntityId = entityId };             
+                string deviceId = parts[0];
+                var stateParts = parts[1].Split(':');
 
-                
+                string entityId = stateParts[0];
+                // Собираем payload 
+                string rawPayload = string.Join(":", stateParts.Skip(1));
+
+                string newState;
+                string? attributesJson = null;
+
+ 
+                if (entityId.StartsWith("light"))
+                {
+                    try
+                    {
+                        // Для света извлекаем только state
+                        var lightStateDto = JsonSerializer.Deserialize<LightStateAttrDto>(rawPayload);
+                        newState = lightStateDto?.State ?? "unknown";
+                        attributesJson = rawPayload; // Весь JSON в атрибуты
+                    }
+                    catch
+                    {
+                        newState = "error";
+                        attributesJson = rawPayload;
+                    }
+                }
+                else
+                {
+                    // Для сенсоров и переключателей - СТРОКА
+                    newState = rawPayload;
+                }
+
+                // Обновление кэша и БД
+                var stateDto = _stateMachine.Get(entityId) ?? new StateEntityDto { EntityIdString = entityId };
+
                 stateDto.State = newState;
                 stateDto.CreatedAt = DateTime.UtcNow;
+                stateDto.AttributesJson = attributesJson;
 
-                await UpdateStateAsync(stateDto);
+                await UpdateStateAsync(deviceId, stateDto);
             }
-            else
+            catch (Exception ex)
             {
-                var parts = data.Split(':');
-                entityId = parts[0];
-                string json = string.Join(":", parts.Skip(1));
-                var lightStateDto = JsonSerializer.Deserialize<LightStateAttrDto>(json);
-                var stateDto = _stateMachine.Get(entityId) ?? new StateEntityDto { EntityId = entityId };
-
-                newState = lightStateDto.State;
-
-                stateDto.State = newState;
-                stateDto.CreatedAt = DateTime.UtcNow;
-
-                await UpdateStateAsync(stateDto);
-            }           
+                Console.WriteLine($"[STATE MANAGER] Error: {ex.Message}");
+            }
         }
-               
-   
 
-        // Загружаем все текущие состояния из БД в StateMachine 
-        // Вызывается один раз в MqttBackgroundService после подключения к MQTT
+        // Загрузка состояний из БД в StateMachine при старте
         public async Task InitializeCacheAsync()
         {
-            var allDevices = await _deviceRepo.GetAllAsync(includeUnavailable: true);
+            // Получаем все устройства с их сущностями
+            var allDevices = await _deviceRepo.GetAllDevicesAsync(includeUnavailable: true);
+
             foreach (var device in allDevices)
             {
-                // Пытаемся взять последнее состояние из истории
-                var lastState = await _stateRepo.GetLastStateAsync(device.EntityId);
-                if (lastState != null)
+                foreach (var entity in device.Entities)
                 {
-                    _stateMachine.Set(lastState);
-                }
-                else if (!string.IsNullOrEmpty(device.CurrentState))
-                {
-                    // StateEntityDto из CurrentState
-                    var stubState = new StateEntityDto
+                    // Берем последнее состояние из истории
+                    var lastState = await _stateRepo.GetLastStateAsync(entity.EntityId);
+
+                    if (lastState != null)
                     {
-                        EntityId = device.EntityId,
-                        State = device.CurrentState,
-                        AttributesJson = device.AttributesJson,
-                        CreatedAt = device.UpdatedAt ?? DateTime.UtcNow
-                    };
-                    _stateMachine.Set(stubState);
+                        _stateMachine.Set(lastState);
+                    }
+                    else if (!string.IsNullOrEmpty(entity.CurrentState))
+                    {
+                        // Создаем состояние из текущего значения сущности
+                        var stubState = new StateEntityDto
+                        {
+                            EntityIdString = entity.EntityId,
+                            State = entity.CurrentState,
+                            AttributesJson = entity.AttributesJson,
+                            CreatedAt = entity.UpdatedAt
+                        };
+                        _stateMachine.Set(stubState);
+                    }
                 }
             }
         }
-
 
         // Получить текущее состояние из КЭШ
         public async Task<EntityOutputModel?> GetCurrentStateAsync(string entityId)
         {
             var stateDto = _stateMachine.Get(entityId);
-            if (stateDto == null) 
+            if (stateDto == null) return null;
 
-                return null;
+            // Получаем метаданные сущности из БД
+            var entity = await _deviceRepo.GetByEntityIdAsync(entityId);
+            if (entity == null) return null;
 
-            var device = await _deviceRepo.GetByIdAsync(entityId);
-            if (device == null)
+            var output = _mapper.Map<EntityOutputModel>(entity);
+            output.State = stateDto.State;
+            output.LastSeen = stateDto.CreatedAt;
 
-                return null;
-
-            var entity = _mapper.Map<EntityOutputModel>(device);
-            entity.State = stateDto.State;
-            entity.LastSeen = stateDto.CreatedAt;
-
-            return entity;
+            return output;
         }
 
-        // Обновить состояние устройства 
-        public async Task UpdateStateAsync(StateEntityDto stateDto)
+        // Обновить состояние в кэше и БД
+        public async Task UpdateStateAsync(string deviceId, StateEntityDto stateDto)
         {
-            // в кэш
             _stateMachine.Set(stateDto);
-
-            // Для истории НОВЫЙ объект
-            var historyEntry = new StateEntityDto
-            {
-                EntityId = stateDto.EntityId,
-                State = stateDto.State,
-                AttributesJson = stateDto.AttributesJson,
-                CreatedAt = DateTime.UtcNow
-            };
-            // в БД 
-            await _stateRepo.AddStateAsync(historyEntry);
-
-            // Обновляем DeviceEntityDto.CurrentState
-            await _deviceRepo.UpdateStateAsync(stateDto);
+            // Сохраняем текущий статус и запись в историю
+            await _stateRepo.UpdateStateAsync(deviceId, stateDto.EntityIdString, stateDto.State, stateDto.AttributesJson);
         }
 
-        // Получить историю состояний устройства из БД
+        // Получить историю состояний сущности из БД
         public async Task<List<DeviceHistoryOutputModel>> GetHistoryAsync(string entityId, DateTime? from = null, DateTime? to = null, int limit = 100)
         {
             var states = await _stateRepo.GetHistoryAsync(entityId, from, to, limit);
-
             return _mapper.Map<List<DeviceHistoryOutputModel>>(states);
         }
     }

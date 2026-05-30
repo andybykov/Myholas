@@ -1,4 +1,4 @@
-﻿using Myholas.Core.Dtos;
+﻿using Myholas.Core.Dtos.Devices;
 using Myholas.Core.Interfaces;
 using System.Collections.Concurrent;
 
@@ -22,6 +22,6 @@ public class StateMachine : IStateMachine
         if (state == null) throw new ArgumentNullException(nameof(state));
         // Обновляем CreatedAt 
         state.CreatedAt = DateTime.UtcNow;
-        _states[state.EntityId] = state;
+        _states[state.EntityIdString] = state;
     }
 }

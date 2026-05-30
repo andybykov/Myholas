@@ -1,23 +1,36 @@
-﻿using Myholas.Core.Dtos;
+﻿using Myholas.Core.Models.Input;
+using Myholas.Core.Models.Output;
 
 namespace Myholas.Core.Interfaces
 {
-
+    // Объект‑менеджер для работы с автоматизациями
     public interface IAutomationManager
     {
+        // Получить автоматизацию по Id
+        Task<AutomationOutputModel?> GetByIdAsync(int id);
 
-        Task<AutomationEntityDto?> GetByIdAsync(int id);
 
-        Task<List<AutomationEntityDto>> GetAllAsync(bool includeDisabled = false);
+        // Получить список всех автоматизаций 
+        Task<List<AutomationOutputModel>> GetAllAsync(bool includeDisabled = false);
 
-        Task<List<AutomationEntityDto>> GetEnabledAsync();
 
-        Task<AutomationEntityDto> AddAsync(AutomationEntityDto dto);
+        // Получить тольков вкл автоматизации
+        Task<List<AutomationOutputModel>> GetEnabledAsync();
 
-        Task<AutomationEntityDto?> UpdateAsync(int id, AutomationEntityDto dto);
 
+        // Создать новую автоматизацию
+        Task<AutomationOutputModel> AddAsync(AutomationInputModel input);
+
+
+        // Обновить существующую автоматизацию
+        Task<AutomationOutputModel?> UpdateAsync(int id, AutomationInputModel input);
+
+
+        // Удалить автоматизацию
         Task<bool> DeleteAsync(int id);
 
+
+        // Включить/выключить автоматизацию
         Task<bool> SetEnabledAsync(int id, bool enabled);
     }
 }

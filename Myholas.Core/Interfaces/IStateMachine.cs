@@ -1,4 +1,4 @@
-﻿using Myholas.Core.Dtos;
+﻿using Myholas.Core.Dtos.Devices;
 
 namespace Myholas.Core.Interfaces
 {

@@ -1,18 +1,17 @@
 ﻿using AutoMapper;
 using Myholas.Core.Dtos;
+using Myholas.Core.Dtos.Devices;
 using Myholas.Core.Interfaces;
+using Myholas.Core.Models.Input;
 using Myholas.Core.Models.Output;
 
 namespace Myholas.BLL.Device
 {
-
-    // Менеджер устройств - CRUD операции и бизнес-логика для DeviceEntityDto
-    public class DeviceManager : IDeviceManager
+    // Менеджер устройств - CRUD операции и бизнес логика
+     public class DeviceManager : IDeviceManager
     {
         private readonly IDeviceRepository _deviceRepo;
-
         private readonly IMapper _mapper;
-
 
         public DeviceManager(IDeviceRepository deviceRepo, IMapper mapper)
         {
@@ -20,88 +19,77 @@ namespace Myholas.BLL.Device
             _mapper = mapper;
         }
 
-        // Одна сущность по EntityId
+        // Получить одну сущность по EntityId
         public async Task<EntityOutputModel?> GetEntityByIdAsync(string entityId)
         {
-            var device = await _deviceRepo.GetByIdAsync(entityId);
-     
-            return _mapper.Map<EntityOutputModel>(device);
+            var entity = await _deviceRepo.GetByEntityIdAsync(entityId);
+            return _mapper.Map<EntityOutputModel>(entity);
         }
 
-        // Все сущности 
+        // Получить все датчики всех устройств плоским списком
         public async Task<List<EntityOutputModel>> GetAllEntitiesAsync(bool includeUnavailable = false)
         {
-            var devices = await _deviceRepo.GetAllAsync(includeUnavailable); 
+            var devices = await _deviceRepo.GetAllDevicesAsync(includeUnavailable);
 
-            return _mapper.Map<List<EntityOutputModel>>(devices);
+            // Разворачиваем список устройств в один плоский список всех сущностей
+            var allEntities = devices.SelectMany(d => d.Entities).ToList();
+
+            return _mapper.Map<List<EntityOutputModel>>(allEntities);
         }
 
-        // CRUD
-
-        // Добавить новое устройство или обновить существующее        
-        public async Task<DeviceEntityDto> AddOrUpdateAsync(DeviceEntityDto entity)
+        // Получить сущности, отфильтрованные по домену (switch, sensor и т.д.)
+        public async Task<List<EntityOutputModel>> GetEntitiesByDomainAsync(string domain)
         {
-            await Task.Delay(100);
-            if (string.IsNullOrWhiteSpace(entity.EntityId))
+            var entities = await _deviceRepo.GetByDomainAsync(domain);
+            return _mapper.Map<List<EntityOutputModel>>(entities);
+        }
+
+        // Добавить или обновить устройство и его сущность
+        // Принимает Input-модели, маппит их в DTO для репозитория
+        public async Task<EntityDto> AddOrUpdateAsync(DeviceDtoInputModel deviceInput, EntityDtoInputModel entityInput)
+        {
+            // Валидация обязательного поля
+            if (string.IsNullOrWhiteSpace(entityInput.EntityId))
                 throw new ArgumentException("EntityId is required");
 
+            // Маппинг из Input-моделей в DTO базы данных
+            var deviceDto = _mapper.Map<DeviceDto>(deviceInput);
+            var entityDto = _mapper.Map<EntityDto>(entityInput);
 
-            return await _deviceRepo.AddOrUpdateAsync(entity);
+            return await _deviceRepo.AddOrUpdateEntityAsync(deviceDto, entityDto);
         }
 
-        // Группированные устройства
-        public async Task<List<DeviceOutputModels>> GetGroupedDevicesAsync()
+        // Получить сгруппированные данные (Физическое устройство -> Список сущностей)
+        public async Task<List<DeviceOutputModel>> GetGroupedDevicesAsync()
         {
-            List<DeviceEntityDto> devices = await _deviceRepo.GetAllAsync(true);
-            var groups = devices.GroupBy(d => d.DeviceId);
-            var result = new List<DeviceOutputModels>();
+            var devices = await _deviceRepo.GetAllDevicesAsync(true);
 
-            foreach (var grp in groups)
-            {
-                var first = grp.First();
-                var group = new DeviceOutputModels
-                {
-                    DeviceId = grp.Key,
-                    FriendlyName = first.FriendlyName,
-                    Ip = first.IpAdress,
-                    IsOnline = grp.Any(d => d.IsAvailable),
-                    LastSeen = grp.Max(d => d.LastSeen),
-                    Version = null,
-                    Entities = _mapper.Map<List<EntityOutputModel>>(grp.ToList())
-                };
-                result.Add(group);
-            }         
-
-            return result;
+            // AutoMapper автоматически маппит DeviceDto -> DeviceOutputModel 
+            // и вложенную коллекцию Entities -> List<EntityOutputModel>
+            return _mapper.Map<List<DeviceOutputModel>>(devices);
         }
 
-
-        // Удалить устройство по EntityId 
+        // Удалить сущность по EntityId (каскадно удалит историю и автоматизации)
         public async Task<bool> DeleteAsync(string entityId)
         {
-            return await _deviceRepo.DeleteAsync(entityId);
+            return await _deviceRepo.DeleteEntityAsync(entityId);
         }
 
-        // Проверить существование устройства
+        // Проверить существование сущности по EntityId
         public async Task<bool> ExistsAsync(string entityId)
         {
             return await _deviceRepo.ExistsAsync(entityId);
         }
 
-        // Сущности по домену
-        public async Task<List<EntityOutputModel>> GetEntitiesByDomainAsync(string domain)
-        {
-            var devices = await _deviceRepo.GetByDomainAsync(domain);
-        
-            return _mapper.Map<List<EntityOutputModel>>(devices);
-        }
-
-        // Сущности по физическому DeviceId
+        // Получить все сущности, привязанные к конкретному физическому DeviceId
         public async Task<List<EntityOutputModel>> GetEntitiesByDeviceIdAsync(string deviceId)
         {
-            var devices = await _deviceRepo.GetByDeviceIdAsync(deviceId);           
+            var device = await _deviceRepo.GetByDeviceIdAsync(deviceId);
 
-            return _mapper.Map<List<EntityOutputModel>>(devices);
+            if (device == null)
+                return new List<EntityOutputModel>();
+
+            return _mapper.Map<List<EntityOutputModel>>(device.Entities);
         }
     }
 }

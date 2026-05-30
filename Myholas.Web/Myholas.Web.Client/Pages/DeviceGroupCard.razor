@@ -150,7 +150,7 @@
 </div>
 
 @code {
-    [Parameter] public DeviceOutputModels DeviceGroup { get; set; } = null!;
+    [Parameter] public DeviceOutputModel DeviceGroup { get; set; } = null!;
     private Dictionary<string, int> brightnessCache = new();
 
     public enum cmd { on, off, toggle }
@@ -166,7 +166,7 @@
     private async Task SendCommand(string entityId, string command)
     {
         if (DeviceGroup.IsOnline != true) return;
-        await Api.SendCommandAsync(entityId, command);
+        await Api.SendCmdAsync(entityId, command);
         await RefreshEntityState(entityId);
     }
 
@@ -180,13 +180,13 @@
     private async Task OnSelectChange(string entityId, string newValue)
     {
         if (DeviceGroup.IsOnline != true) return;
-        await Api.SendCommandAsync(entityId, newValue);
+        await Api.SendCmdAsync(entityId, newValue);
         await RefreshEntityState(entityId);
     }
 
     private async Task RefreshEntityState(string entityId)
     {
-        var updated = await Api.GetCurrentStateAsync(entityId);
+        var updated = await Api.GetStateAsync(entityId);
         if (updated == null) return;
 
         var entity = DeviceGroup.Entities.FirstOrDefault(e => e.EntityId == entityId);

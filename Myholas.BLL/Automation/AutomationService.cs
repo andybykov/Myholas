@@ -2,7 +2,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Myholas.Core.Automation;
-using Myholas.Core.Dtos;
+using Myholas.Core.Dtos.Automations;
 using Myholas.Core.Interfaces;
 using System.Text.Json;
 
@@ -21,8 +21,7 @@ namespace Myholas.BLL.Automation
     public class AutomationService : BackgroundService
     {
 
-        private readonly IEventBus _eventBus;
-        
+        private readonly IEventBus _eventBus;       
 
         // для создания DI scope внутри background service
         private readonly IServiceScopeFactory _scopeFactory;
@@ -42,29 +41,37 @@ namespace Myholas.BLL.Automation
         /// <summary>
         /// Фоновый цикл background service
         /// Загружает automation rules
-        /// и подписывается на state_changed
+        /// и подписывается на то что нужно
         /// </summary>
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
 #if DEB
             Console.WriteLine("[AUTOMATION] Service started");
 #endif
-            // automation из БД
+            // Загружаем правила при старте
             await LoadRules();
 
+         
+            _eventBus.Listen("state_changed", OnStateChanged);            
+            _eventBus.Listen("automation.created", OnAutomationChanged);
+            _eventBus.Listen("automation.updated", OnAutomationChanged);
+            _eventBus.Listen("automation.deleted", OnAutomationChanged);
 
-            _eventBus.Listen("state_changed", OnStateChanged);
-            _eventBus.Listen("automation.created", OnStateChanged);
-
-            // обновляем automation rules
             while (!stoppingToken.IsCancellationRequested)
             {
                 await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
-
                 await LoadRules();
             }
         }
 
+        //обработчик для обновления правил
+        private async void OnAutomationChanged(string eventType, string data)
+        {
+#if DEB
+            Console.WriteLine($"[AUTOMATION] Rules changed ({eventType}), reloading...");
+#endif
+            await LoadRules();
+        }
 
         // Загружает enabled automation из БД
         private async Task LoadRules()
@@ -79,13 +86,6 @@ namespace Myholas.BLL.Automation
 #endif
         }
 
-        /// <summary>
-        /// Вызывается при state_changed, automation.created event
-        ///
-        /// - проверяются triggers
-        /// - conditions
-        /// - выполняются actions
-        /// </summary>
         private async void OnStateChanged(string eventType, string data)
         {
 #if DEB
@@ -149,6 +149,7 @@ namespace Myholas.BLL.Automation
 #if DEB
                     Console.WriteLine($"[AUTOMATION] Conditions OK");
 #endif
+                    await LoadRules(); //ПРАВИЛА!
 
                     // Выполняем actions
                     await ExecuteActions(automation);
@@ -271,32 +272,40 @@ namespace Myholas.BLL.Automation
         /// </summary>
         private static (string entityId, string state) ParseStateData(string data)
         {
-            var colon = data.IndexOf(':');
+            // ТЕПЕРЬ ДАННЫЕ ПРИХОДЯТ ТАК: "esp-lamp01|sensor.temp:24.5"
 
-            if (colon == -1)
+            // 1. Сначала разделяем по '|', чтобы избавиться от deviceId
+            var mainParts = data.Split('|');
+            if (mainParts.Length < 2)
+            {
+                // Если вдруг пришел старый формат без '|', пробуем обработать как раньше
+                if (!data.Contains(':')) return (null, null);
+                var oldParts = data.Split(':');
+                return (oldParts[0], oldParts.Length > 1 ? oldParts[1] : "unknown");
+            }
+
+            // Берем вторую часть: "sensor.temp:24.5"
+            var stateData = mainParts[1];
+            var colonIndex = stateData.IndexOf(':');
+
+            if (colonIndex == -1)
                 return (null, null);
 
-            var entityId = data.Substring(0, colon);
+            var entityId = stateData.Substring(0, colonIndex); // "sensor.temp"
+            var rawState = stateData.Substring(colonIndex + 1); // "24.5"
 
-            var rawState = data.Substring(colon + 1);
-
-            // JSON state
-            if (rawState.StartsWith('{'))
+            // Обработка JSON-состояний (для света)
+            if (rawState.StartsWith("{"))
             {
                 try
                 {
                     using var doc = JsonDocument.Parse(rawState);
-
                     if (doc.RootElement.TryGetProperty("state", out var stateProp))
                     {
-                        return (entityId,stateProp.GetString() ?? "");
+                        return (entityId, stateProp.GetString() ?? "");
                     }
                 }
-                catch
-                {
-                }
-
-                return (entityId, rawState);
+                catch { }
             }
 
             return (entityId, rawState);

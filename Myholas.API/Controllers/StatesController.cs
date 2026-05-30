@@ -20,7 +20,7 @@ namespace Myholas.API.Controllers
             _commandService = commandService;
         }
 
-        //  Получить текущее состояние устройства 
+        // Получить текущее состояние устройства 
         [HttpGet("{entityId}/current")]
         public async Task<ActionResult<EntityOutputModel>> GetCurrentState(string entityId)
         {
@@ -39,12 +39,12 @@ namespace Myholas.API.Controllers
             [FromQuery] DateTime? to,
             [FromQuery] int limit = 100)
         {
-            var history = _stateManager.GetHistoryAsync(entityId, from, to, limit);
+            var history = await _stateManager.GetHistoryAsync(entityId, from, to, limit);
 
             return Ok(history);
         }
 
-        //  Отправить команду устройству 
+        // Отправить команду устройству 
         [HttpPost("{entityId}/command")]
         public async Task<IActionResult> SendCommand(string entityId, [FromBody] string command)
         {

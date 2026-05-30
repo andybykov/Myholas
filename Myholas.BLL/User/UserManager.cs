@@ -1,5 +1,5 @@
 ﻿using AutoMapper;
-using Myholas.Core.Dtos;
+using Myholas.Core.Dtos.Users;
 using Myholas.Core.Interfaces;
 using Myholas.Core.Models.Input;
 using Myholas.Core.Models.Output;

@@ -3,280 +3,192 @@
 
 @using Myholas.Web.Client.Models
 @using Myholas.Core.Dtos
-@using System.Security.Claims
-@using Blazored.LocalStorage
+@using Myholas.Core.Models.Input
+@using Myholas.Core.Models.Output
 @using Myholas.Web.Client.Auth
 @using Myholas.Web.Client.Pages.Existions
 
-@* client rendering *@
-@* @rendermode InteractiveWebAssembly *@
-
-@* client rendering && disable pre-rendering *@
 @rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
 
 @inject NavigationManager Navigation
 @inherits SecureComponentBase
 
 <SecureContent IsLoading="IsLoading" IsAuthenticated="IsAuthenticated">
+    <div class="container py-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h3>@(Model.Id == 0 ? "Создание автоматизации" : "Редактирование")</h3>
+            <button class="btn btn-outline-secondary" @onclick="Cancel">Отмена</button>
+        </div>
 
-    <EditForm Model="@Model"
-    OnValidSubmit="@Save"
-    FormName="automation-form">
+        <EditForm Model="@Model" OnValidSubmit="@Save">
+            <DataAnnotationsValidator />
 
-        <div class="card">
-
-            <div class="card-header">
-
-                <h5>
-                    @(
-                                    Model.Id == 0
-                                                            ? "Новая автоматизация"
-                                                            : "Редактирование автоматизации"
-                                    )
-                                </h5>
-
+            <div class="row">
+                <!-- ЛЕВАЯ КОЛОНКА: Основные настройки -->
+                <div class="col-lg-4">
+                    <div class="card shadow-sm mb-4">
+                        <div class="card-header bg-light fw-bold">Общие настройки</div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label class="form-label">Название</label>
+                                <InputText class="form-control" @bind-Value="Model.Name" placeholder="Напр: Свет по датчику" />
                             </div>
-
-                            <div class="card-body">
-
-                                <!-- NAME -->
-
-                                <div class="mb-3">
-
-                                    <label class="form-label">
-                                        Название
-                                    </label>
-
-                                    <InputText class="form-control"
-                                    @bind-Value="Model.Name" />
-
-                                </div>
-
-                                <!-- DESCRIPTION -->
-
-                                <div class="mb-3">
-
-                                    <label class="form-label">
-                                        Описание
-                                    </label>
-
-                                    <InputTextArea class="form-control"
-                                    @bind-Value="Model.Description" />
-
-                                </div>
-
-                                <hr />
-
-                                <!-- TRIGGER -->
-
-                                <h5>Триггер</h5>
-
-                                <div class="row">
-
-                                    <div class="col-md-5">
-
-                                        <EntitySelector
-                                        Label="Entity"
-                                        Devices="@devices"
-                                        @bind-SelectedEntityId=
-                    "Model.TriggerEntityId" />
-
-                                    </div>
-
-                                    <div class="col-md-3">
-
-                                        <label>Оператор</label>
-
-                                        <select class="form-select"
-                                        @bind="Model.TriggerOperator">
-
-                                            <option value="equals">@("equals")</option>
-
-                                            <option value="not_equals">@("not_equals")</option>
-
-                                            <option value="more">@("more")</option>
-
-                                            <option value="less">@("less")</option>
-
-                                            <option value="less">@("less")</option>
-
-                                            <option value="less_or_equals">@("less_or_equals")</option>
-
-                                            <option value="contains">
-                                                contains
-                                            </option>
-
-                                        </select>
-
-                                    </div>
-
-                                    <div class="col-md-4">
-
-                                        <label>Значение</label>
-
-                                        <InputText class="form-control"
-                                        @bind-Value=
-                    "Model.TriggerValue" />
-
-                                    </div>
-
-                                </div>
-
-                                <hr />
-
-                                <!-- ACTION -->
-
-                                <h5>Действие</h5>
-
-                                <div class="row">
-
-                                    <div class="col-md-6">
-
-                                        <EntitySelector
-                                        Label="Entity"
-                                        Devices="@devices"
-                                        @bind-SelectedEntityId=
-                    "Model.ActionEntityId" />
-
-                                    </div>
-
-                                    <div class="col-md-6">
-
-                                        <label>Команда</label>
-
-                                        <select class="form-select"
-                                        @bind="Model.ActionCommandType">
-
-                                            <option value="on">
-                                                ON
-                                            </option>
-
-                                            <option value="off">
-                                                OFF
-                                            </option>
-
-                                            <option value="toggle">
-                                                TOGGLE
-                                            </option>
-
-                                        </select>
-
-                                    </div>
-
-                                </div>
-
-                                <hr />
-
-                                <!-- DELAY -->
-
-                                <h5>Delay</h5>
-
-                                <div class="row">
-
-                                    <div class="col-md-4">
-
-                                        <label>Delay ms</label>
-
-                                        <InputNumber class="form-control"
-                                        @bind-Value=
-                    "Model.DelayMs" />
-
-                                    </div>
-
-                                </div>
-
-                                <hr />
-
-                                <!-- ENABLE -->
-
-                                <div class="form-check">
-
-                                    <InputCheckbox class="form-check-input"
-                                    @bind-Value=
-                    "Model.IsEnabled" />
-
-                                    <label class="form-check-label">
-                                        Включена
-                                    </label>
-
-                                </div>
-
+                            <div class="mb-3">
+                                <label class="form-label">Описание</label>
+                                <InputTextArea class="form-control" @bind-Value="Model.Description" rows="3" />
                             </div>
-
-                            <div class="card-footer">
-
-                                <button type="submit"
-                                class="btn btn-primary">
-
-                                    Сохранить
-
-                                </button>
-
-                                <button type="button"
-                                class="btn btn-secondary ms-2"
-                                @onclick="Cancel">
-
-                                    Отмена
-
-                                </button>
-
+                            <div class="form-check form-switch mt-4">
+                                <InputCheckbox class="form-check-input" @bind-Value="Model.IsEnabled" id="swEnable" />
+                                <label class="form-check-label" for="swEnable">Активна</label>
                             </div>
-
                         </div>
+                    </div>
+                </div>
 
-                    </EditForm>
+                <!-- ПРАВАЯ КОЛОНКА: Логика (Триггер -> Условие -> Действие) -->
+                <div class="col-lg-8">
+                    
+                    <!-- БЛОК 1: ТРИГГЕР -->
+                    <div class="card shadow-sm mb-4">
+                        <div class="card-header bg-primary text-white fw-bold">
+                            <i class="bi bi-lightning-fill"></i> Шаг 1: Когда это произойдет? (Триггер)
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <div class="col-md-5">
+                                    <EntitySelector Label="Сущность" Devices="@devices" @bind-SelectedEntityId="Model.TriggerEntityId" />
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Оператор</label>
+                                    <select class="form-select" @bind="Model.TriggerOperator">
+                                        <option value="equals">"@("==")</option>
+                                        <option value="not_equals">@("!=")</option>
+                                        <option value="less">@("<")</option>
+                                        <option value="more">@(">")</option>
+                                        <option value="more_or_equals">@(">=")</option>
+                                        <option value="less_or_equals">@("<=")</option>
+                                        <option value="contains">Contains</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Значение</label>
+                                    <InputText class="form-control" @bind-Value="Model.TriggerValue" placeholder="Напр: 25 или ON" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- БЛОК 2: УСЛОВИЯ (Дополнительно) -->
+                    <div class="card shadow-sm mb-4">
+                        <div class="card-header bg-secondary text-white fw-bold d-flex justify-content-between align-items-center">
+                            <span>Шаг 2: Дополнительные условия (Если...)</span>
+                            <button type="button" class="btn btn-sm btn-light" @onclick="AddCondition">+ Добавить</button>
+                        </div>
+                        <div class="card-body">
+                            @if (Model.Conditions == null || !Model.Conditions.Any())
+                            {
+                                <div class="text-center text-muted py-3">Условия не заданы. Автоматизация сработает сразу после триггера.</div>
+                            }
+                            else
+                            {
+                                @foreach (var cond in Model.Conditions)
+                                {
+                                    <div class="row g-2 mb-3 align-items-end p-2 border rounded bg-light">
+                                        <div class="col-md-5">
+                                            <EntitySelector Label="Сущность" Devices="@devices" @bind-SelectedEntityId="cond.EntityId" />
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label">Оператор</label>
+                                            <select class="form-select" @bind="cond.Operator">
+                                                <option value="equals">Равно</option>
+                                                <option value="not_equals">Не равно</option>
+                                                <option value="more">Больше</option>
+                                                <option value="less">Меньше</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label">Значение</label>
+                                            <InputText class="form-control" @bind-Value="cond.Value" />
+                                        </div>
+                                        <div class="col-md-1 text-end">
+                                            <button type="button" class="btn btn-outline-danger btn-sm" @onclick="() => RemoveCondition(cond)">🗑️</button>
+                                        </div>
+                                    </div>
+                                }
+                            }
+                        </div>
+                    </div>
+
+                    <!-- БЛОК 3: ДЕЙСТВИЕ -->
+                    <div class="card shadow-sm mb-4">
+                        <div class="card-header bg-success text-white fw-bold">
+                            <i class="bi bi-gear-fill"></i> Шаг 3: Что сделать? (Действие)
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <EntitySelector Label="Сущность" Devices="@devices" @bind-SelectedEntityId="Model.ActionEntityId" />
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Команда</label>
+                                    <select class="form-select" @bind="Model.ActionCommandType">
+                                        <option value="on">Включить (ON)</option>
+                                        <option value="off">Выключить (OFF)</option>
+                                        <option value="toggle">Переключить (TOGGLE)</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-12">
+                                    <div class="row align-items-center mt-3">
+                                        <div class="col-auto">
+                                            <label class="form-label">Задержка выполнения (мс):</label>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <InputNumber class="form-control" @bind-Value="Model.DelayMs" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="text-end">
+                        <button type="submit" class="btn btn-primary btn-lg px-5 shadow">
+                            Сохранить автоматизацию
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </EditForm>
+    </div
 </SecureContent>
+
 @code {
-
-    [Parameter]
-    public int? EditId { get; set; }
-
+    [Parameter] public int? EditId { get; set; }
     private AutomationEditModel Model = new();
-
-    private List<DeviceOutputModels> devices = new();
+    private List<DeviceOutputModel> devices = new();
 
     protected override async Task OnInitializedAsync()
     {
-        // вызываем базовый метод
-        await base.OnInitializedAsync(); // проверка аутентификации
-
+        await base.OnInitializedAsync();
         devices = await Api.GetGroupedDevicesAsync();
-
-        // EDIT
 
         if (EditId.HasValue)
         {
-            var dto =
-                await Api.GetAutomationAsync(
-                    EditId.Value);
-
-            if (dto != null)
-            {
-                Model =
-                    AutomationEditModel
-                        .FromDto(dto);
-            }
+            var dto = await Api.GetAutomationAsync(EditId.Value);
+            if (dto != null) Model = AutomationEditModel.FromOutputModel(dto);
         }
     }
+
+    private void AddCondition() => Model.Conditions.Add(new ConditionModel());
+    private void RemoveCondition(ConditionModel cond) => Model.Conditions.Remove(cond);
 
     private async Task Save()
     {
-        var dto = Model.ToDto();
-
-        if (dto.Id == 0)
-        {
-            await Api.CreateAutomationAsync(dto);
-        }
-        else
-        {
-            await Api.UpdateAutomationAsync(dto);
-        }
-
+        var input = Model.ToInputModel();
+        if (input.Id == 0) await Api.CreateAutomationAsync(input);
+        else await Api.UpdateAutomationAsync(input);
         Navigation.NavigateTo("/automations");
     }
 
-    private void Cancel()
-    {
-        Navigation.NavigateTo("/automations");
-    }
+    private void Cancel() => Navigation.NavigateTo("/automations");
 }
