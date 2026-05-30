@@ -40,7 +40,7 @@ namespace Myholas.Core
             modelBuilder.Entity<DeviceEntityDto>(entity =>
             {
                 entity.HasIndex(d => d.EntityId).IsUnique();
-                entity.HasIndex(d => d.DeviceId).IsUnique(); // альтернативный ключ
+               // entity.HasIndex(d => d.DeviceId).IsUnique(); // альтернативный ключ
             });
 
             modelBuilder.Entity<UserEntityDto>(entity =>

@@ -7,6 +7,7 @@ using Myholas.Core.Models.Output;
 
 namespace Myholas.API.Controllers
 {
+    [Authorize] 
     [ApiController]
     [Route("api/[controller]")]
     public class DevicesController : ControllerBase
@@ -19,7 +20,6 @@ namespace Myholas.API.Controllers
         }
 
         //  Получить все устройства в виде списка EntityOutputModel 
-        [Authorize]
         [HttpGet("entities")]
         public async Task<ActionResult<List<EntityOutputModel>>> GetAllEntities([FromQuery] bool includeUnavailable = false)
         {

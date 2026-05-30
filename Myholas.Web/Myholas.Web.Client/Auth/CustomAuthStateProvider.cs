@@ -40,18 +40,24 @@ namespace Myholas.Web.Client.Auth
                 // Возвращаем "пустую" личность (анонимного пользователя)
                 return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
             }
+            try
+            {
+                // Если токен есть, нам нужно «раскодировать» его, чтобы узнать имя и роль пользователя
+                var claims = ParseClaimsFromJwt(token);
 
-            // Если токен есть, нам нужно «раскодировать» его, чтобы узнать имя и роль пользователя
-            var claims = ParseClaimsFromJwt(token);
+                // Создаем "личность" (Identity) на основе данных из токена
+                var identity = new ClaimsIdentity(claims, "Jwt");
 
-            // Создаем "личность" (Identity) на основе данных из токена
-            var identity = new ClaimsIdentity(claims, "Jwt");
+                // Создаем "принципала" (Principal) — это объект, который объединяет личность и права доступа
+                var user = new ClaimsPrincipal(identity);
 
-            // Создаем "принципала" (Principal) — это объект, который объединяет личность и права доступа
-            var user = new ClaimsPrincipal(identity);
-
-            // Возвращаем состояние: "Вот этот пользователь сейчас активен в системе"
-            return new AuthenticationState(user);
+                // Возвращаем состояние: "Вот этот пользователь сейчас активен в системе"
+                return new AuthenticationState(user);
+            }
+            catch (Exception ex) {
+                Console.WriteLine($"[AuthProvicer]: error while token parsing: {ex.Message}");
+                return new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()));
+            }
         }
 
         /// <summary>

@@ -10,7 +10,8 @@ namespace Myholas.Core.MappingProfiles
         public GeneralMappingProfile()
         {
             // DeviceEntityDto to EntityOutputModel 
-            CreateMap<DeviceEntityDto, EntityOutputModel>()
+
+                CreateMap<DeviceEntityDto, EntityOutputModel>()
                 .ForMember(dest => dest.EntityId, opt => opt.MapFrom(src => src.EntityId))
                 .ForMember(dest => dest.Domain, opt => opt.MapFrom(src => src.Domain))
                 .ForMember(dest => dest.Name, opt => opt.MapFrom(src => src.FriendlyName ?? src.EntityId))

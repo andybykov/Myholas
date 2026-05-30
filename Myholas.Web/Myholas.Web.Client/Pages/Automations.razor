@@ -3,124 +3,139 @@
 @using Microsoft.AspNetCore.Authorization
 @using Myholas.Core.Dtos
 @using System.Text.Json
+@using Myholas.Web.Client.Pages.Existions
 
-@* client rendering *@
-@rendermode InteractiveWebAssembly
-@attribute [Authorize]
-@inject ApiClient Api
+
+@* client rendering && disable pre-rendering *@
+@rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
+
 @inject NavigationManager Navigation
+@inherits SecureComponentBase
 
-<h3>Автоматизации</h3>
+<SecureContent IsLoading="IsLoading" IsAuthenticated="IsAuthenticated">
+    
+    <h3>Автоматизации</h3>
 
-<button class="btn btn-primary mb-3"
-        @onclick='() => Navigation.NavigateTo("/automations/edit")'>
-    + Новая автоматизация
-</button>
+    @if (IsAdmin)
+    {
+        <div class="alert alert-info">Вы Администратор.</div>
+    }
+  
 
-@if (automations == null)
-{
-    <p>Загрузка...</p>
-}
-else if (!automations.Any())
-{
-    <p>Нет автоматизаций</p>
-}
-else
-{
-    <div class="list-group">
-        @foreach (var a in automations)
-        {
-            <div class="list-group-item">
-                <div class="d-flex justify-content-between align-items-start">
+    <button class="btn btn-primary mb-3"
+    @onclick='() => Navigation.NavigateTo("/automations/edit")'>
+        + Новая автоматизация
+    </button>
 
-                    <div>
-                        <h5>@a.Name</h5>
+    @if (automations == null)
+    {
+        <p>Загрузка...</p>
+        <LoadingSpinner />
+    }
+    else if (!automations.Any())
+    {
+        <p>Нет автоматизаций</p>
+    }
+    else
+    {
+        <div class="list-group">
+            @foreach (var a in automations)
+            {
+                <div class="list-group-item">
+                    <div class="d-flex justify-content-between align-items-start">
 
-                        <p class="text-muted">
-                            @a.Description
-                        </p>
+                        <div>
+                            <h5>@a.Name</h5>
 
-                        <div class="small">
+                            <p class="text-muted">
+                                @a.Description
+                            </p>
 
-                            <div>
-                                <strong>Триггеры:</strong>
+                            <div class="small">
 
-                                @if (!string.IsNullOrWhiteSpace(a.TriggersJson))
-                                {
-                                    <pre class="mb-1">
-@PrettyJson(a.TriggersJson)
-                                    </pre>
-                                }
+                                <div>
+                                    <strong>Триггеры:</strong>
+
+                                    @if (!string.IsNullOrWhiteSpace(a.TriggersJson))
+                                    {
+                                        <pre class="mb-1">
+                                            @PrettyJson(a.TriggersJson)
+                                        </pre>
+                                    }
+                                </div>
+
+                                <div>
+                                    <strong>Conditions:</strong>
+
+                                    @if (!string.IsNullOrWhiteSpace(a.ConditionsJson))
+                                    {
+                                        <pre class="mb-1">
+                                            @PrettyJson(a.ConditionsJson)
+                                        </pre>
+                                    }
+                                </div>
+
+                                <div>
+                                    <strong>Actions:</strong>
+
+                                    @if (!string.IsNullOrWhiteSpace(a.ActionsJson))
+                                    {
+                                        <pre class="mb-1">
+                                            @PrettyJson(a.ActionsJson)
+                                        </pre>
+                                    }
+                                </div>
+
                             </div>
-
-                            <div>
-                                <strong>Conditions:</strong>
-
-                                @if (!string.IsNullOrWhiteSpace(a.ConditionsJson))
-                                {
-                                    <pre class="mb-1">
-@PrettyJson(a.ConditionsJson)
-                                    </pre>
-                                }
-                            </div>
-
-                            <div>
-                                <strong>Actions:</strong>
-
-                                @if (!string.IsNullOrWhiteSpace(a.ActionsJson))
-                                {
-                                    <pre class="mb-1">
-@PrettyJson(a.ActionsJson)
-                                    </pre>
-                                }
-                            </div>
-
                         </div>
-                    </div>
 
-                    <div class="text-end">
+                        <div class="text-end">
 
-                        <span class="badge @(a.IsEnabled
+                            <span class="badge @(a.IsEnabled
                                                                                         ? "bg-success"
                                                                                         : "bg-secondary") mb-2">
 
-                            @(a.IsEnabled ? "Включена" : "Выключена")
+                                @(a.IsEnabled ? "Включена" : "Выключена")
 
-                        </span>
+                            </span>
 
-                        <div class="btn-group">
+                            <div class="btn-group">
 
-                            <button class="btn btn-sm btn-outline-primary"
-                                    @onclick="() => Edit(a.Id)">
-                                ✏️
-                            </button>
+                                <button class="btn btn-sm btn-outline-primary"
+                                @onclick="() => Edit(a.Id)">
+                                    ✏️
+                                </button>
 
-                            <button class="btn btn-sm btn-outline-danger"
-                                    @onclick="() => Delete(a.Id)">
-                                🗑️
-                            </button>
+                                <button class="btn btn-sm btn-outline-danger"
+                                @onclick="() => Delete(a.Id)">
+                                    🗑️
+                                </button>
 
-                            <button class="btn btn-sm btn-outline-secondary"
-                                    @onclick="() => Toggle(a.Id, !a.IsEnabled)">
-                                🔄
-                            </button>
+                                <button class="btn btn-sm btn-outline-secondary"
+                                @onclick="() => Toggle(a.Id, !a.IsEnabled)">
+                                    🔄
+                                </button>
+
+                            </div>
 
                         </div>
 
                     </div>
-
                 </div>
-            </div>
-        }
-    </div>
-}
+            }
+        </div>
+    }
+</SecureContent>
 
 @code {
 
     private List<AutomationEntityDto>? automations;
 
+
     protected override async Task OnInitializedAsync()
     {
+        // вызываем базовый метод
+        await base.OnInitializedAsync(); // проверка аутентификации
         await Load();
     }
 
@@ -131,10 +146,12 @@ else
         StateHasChanged();
     }
 
+
     private void Edit(int id)
     {
         Navigation.NavigateTo($"/automations/edit/{id}");
     }
+
 
     private async Task Delete(int id)
     {

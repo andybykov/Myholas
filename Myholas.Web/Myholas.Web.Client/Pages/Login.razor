@@ -1,14 +1,15 @@
 ﻿@page "/login"
 @using Myholas.Core.Models.Input
 @using Myholas.Web.Client.Auth
-@inject ApiClient Api
-@inject CustomAuthStateProvider AuthProvider
+
+@inherits SecureComponentBase
+
 @inject NavigationManager NavManager
 
 @* Отключаем pre-rendering, чтобы LocalStorage работал сразу *@
 @rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
 
-<div class="row justify-content-center min-vh-100 align-items-center">
+<div class="row justify-content-center align-items-center">
     <div class="col-md-6 col-lg-4">
         <h3 class="text-center mb-4">Авторизация</h3>
 
@@ -58,6 +59,7 @@
 @code {
     // Инициализируем модель сразу, чтобы не было ошибки NullReferenceException
     private UserLoginInputModel loginModel = new();
+
     private bool loginFail = false;
 
     async Task HandleLogin()

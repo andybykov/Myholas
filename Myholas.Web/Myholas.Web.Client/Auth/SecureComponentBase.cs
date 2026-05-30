@@ -19,11 +19,22 @@ namespace Myholas.Web.Client.Auth
 
         public bool IsAdmin { get; private set; }
 
+        // страница загружается
+        public bool IsLoading { get; private set; } = true;
+
 
         protected override async Task OnInitializedAsync()
         {
-            await CheckAuthentication();
-            await base.OnInitializedAsync();
+            IsLoading = true;
+            try
+            {
+                await CheckAuthentication();
+                await base.OnInitializedAsync();
+            }
+            finally
+            {
+                IsLoading = false; // загрузка завершена
+            }
         }
 
         protected virtual async Task CheckAuthentication()
@@ -38,13 +49,22 @@ namespace Myholas.Web.Client.Auth
                 var username = user.Identity?.Name;
                 if (!string.IsNullOrEmpty(username))
                 {
-                    // Запрашиваем полные данные пользователя из API
-                    var userData = await Api.GetUserByUsernameAsync(username);
-                    if (userData != null)
+                    try
                     {
-                        CurrentUser = userData;
-                        // Проверяем роль
-                        IsAdmin = userData.Role.ToString() == "Admin";
+                        // Запрашиваем полные данные пользователя из API
+                        var userData = await Api.GetUserByUsernameAsync(username);
+                        if (userData != null)
+                        {
+                            CurrentUser = userData;
+                            // Проверяем роль
+                            IsAdmin = userData.Role.ToString() == "Admin";
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        // Если API выбросил исключение (например, из-за 401), 
+                        // JwtHandler уже сделал редирект, но здесь можно добавить лог.
+                        Console.WriteLine($"[SECURE]: Exception {e}");
                     }
                 }
             }

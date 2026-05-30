@@ -23,7 +23,7 @@ namespace Myholas.BLL.Device
 
             // event on MqttToEventBusBridge
             _eventBus.Listen("device.updated", OnDeviceUpdated);
-              _eventBus.Listen("device.updated", OnConfigReceived);      
+           // _eventBus.Listen("device.updated", OnConfigReceived);      
         }
 
         // Обработчик конфигурации 

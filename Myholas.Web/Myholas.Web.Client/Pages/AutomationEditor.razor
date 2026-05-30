@@ -3,218 +3,229 @@
 
 @using Myholas.Web.Client.Models
 @using Myholas.Core.Dtos
+@using System.Security.Claims
+@using Blazored.LocalStorage
+@using Myholas.Web.Client.Auth
+@using Myholas.Web.Client.Pages.Existions
 
 @* client rendering *@
-@rendermode InteractiveWebAssembly
+@* @rendermode InteractiveWebAssembly *@
 
-@inject ApiClient Api
+@* client rendering && disable pre-rendering *@
+@rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
+
 @inject NavigationManager Navigation
+@inherits SecureComponentBase
 
-<EditForm Model="@Model"
-          OnValidSubmit="@Save"
-          FormName="automation-form">
+<SecureContent IsLoading="IsLoading" IsAuthenticated="IsAuthenticated">
 
-    <div class="card">
+    <EditForm Model="@Model"
+    OnValidSubmit="@Save"
+    FormName="automation-form">
 
-        <div class="card-header">
+        <div class="card">
 
-            <h5>
-                @(Model.Id == 0
-                    ? "Новая автоматизация"
-                    : "Редактирование автоматизации")
-            </h5>
+            <div class="card-header">
 
-        </div>
+                <h5>
+                    @(
+                                    Model.Id == 0
+                                                            ? "Новая автоматизация"
+                                                            : "Редактирование автоматизации"
+                                    )
+                                </h5>
 
-        <div class="card-body">
+                            </div>
 
-            <!-- NAME -->
+                            <div class="card-body">
 
-            <div class="mb-3">
+                                <!-- NAME -->
 
-                <label class="form-label">
-                    Название
-                </label>
+                                <div class="mb-3">
 
-                <InputText class="form-control"
-                           @bind-Value="Model.Name" />
+                                    <label class="form-label">
+                                        Название
+                                    </label>
 
-            </div>
+                                    <InputText class="form-control"
+                                    @bind-Value="Model.Name" />
 
-            <!-- DESCRIPTION -->
+                                </div>
 
-            <div class="mb-3">
+                                <!-- DESCRIPTION -->
 
-                <label class="form-label">
-                    Описание
-                </label>
+                                <div class="mb-3">
 
-                <InputTextArea class="form-control"
-                               @bind-Value="Model.Description" />
+                                    <label class="form-label">
+                                        Описание
+                                    </label>
 
-            </div>
+                                    <InputTextArea class="form-control"
+                                    @bind-Value="Model.Description" />
 
-            <hr />
+                                </div>
 
-            <!-- TRIGGER -->
+                                <hr />
 
-            <h5>Триггер</h5>
+                                <!-- TRIGGER -->
 
-            <div class="row">
+                                <h5>Триггер</h5>
 
-                <div class="col-md-5">
+                                <div class="row">
 
-                    <EntitySelector
-                        Label="Entity"
-                        Devices="@devices"
-                        @bind-SelectedEntityId=
-                            "Model.TriggerEntityId" />
+                                    <div class="col-md-5">
 
-                </div>
+                                        <EntitySelector
+                                        Label="Entity"
+                                        Devices="@devices"
+                                        @bind-SelectedEntityId=
+                    "Model.TriggerEntityId" />
 
-                <div class="col-md-3">
+                                    </div>
 
-                    <label>Оператор</label>
+                                    <div class="col-md-3">
 
-                    <select class="form-select"
-                            @bind="Model.TriggerOperator">
+                                        <label>Оператор</label>
 
-                        <option value="equals">@("equals")</option>
+                                        <select class="form-select"
+                                        @bind="Model.TriggerOperator">
 
-                        <option value="not_equals">@("not_equals")</option>
+                                            <option value="equals">@("equals")</option>
 
-                        <option value="more">@("more")</option>
+                                            <option value="not_equals">@("not_equals")</option>
 
-                        <option value="less">@("less")</option>
+                                            <option value="more">@("more")</option>
 
-                        <option value="less">@("less")</option>
+                                            <option value="less">@("less")</option>
 
-                        <option value="less_or_equals">@("less_or_equals")</option>
+                                            <option value="less">@("less")</option>
 
-                        <option value="contains">
-                            contains
-                        </option>
+                                            <option value="less_or_equals">@("less_or_equals")</option>
 
-                    </select>
+                                            <option value="contains">
+                                                contains
+                                            </option>
 
-                </div>
+                                        </select>
 
-                <div class="col-md-4">
+                                    </div>
 
-                    <label>Значение</label>
+                                    <div class="col-md-4">
 
-                    <InputText class="form-control"
-                               @bind-Value=
-                                   "Model.TriggerValue" />
+                                        <label>Значение</label>
 
-                </div>
+                                        <InputText class="form-control"
+                                        @bind-Value=
+                    "Model.TriggerValue" />
 
-            </div>
+                                    </div>
 
-            <hr />
+                                </div>
 
-            <!-- ACTION -->
+                                <hr />
 
-            <h5>Действие</h5>
+                                <!-- ACTION -->
 
-            <div class="row">
+                                <h5>Действие</h5>
 
-                <div class="col-md-6">
+                                <div class="row">
 
-                    <EntitySelector
-                        Label="Entity"
-                        Devices="@devices"
-                        @bind-SelectedEntityId=
-                            "Model.ActionEntityId" />
+                                    <div class="col-md-6">
 
-                </div>
+                                        <EntitySelector
+                                        Label="Entity"
+                                        Devices="@devices"
+                                        @bind-SelectedEntityId=
+                    "Model.ActionEntityId" />
 
-                <div class="col-md-6">
+                                    </div>
 
-                    <label>Команда</label>
+                                    <div class="col-md-6">
 
-                    <select class="form-select"
-                            @bind="Model.ActionCommandType">
+                                        <label>Команда</label>
 
-                        <option value="on">
-                            ON
-                        </option>
+                                        <select class="form-select"
+                                        @bind="Model.ActionCommandType">
 
-                        <option value="off">
-                            OFF
-                        </option>
+                                            <option value="on">
+                                                ON
+                                            </option>
 
-                        <option value="toggle">
-                            TOGGLE
-                        </option>
+                                            <option value="off">
+                                                OFF
+                                            </option>
 
-                    </select>
+                                            <option value="toggle">
+                                                TOGGLE
+                                            </option>
 
-                </div>
+                                        </select>
 
-            </div>
+                                    </div>
 
-            <hr />
+                                </div>
 
-            <!-- DELAY -->
+                                <hr />
 
-            <h5>Delay</h5>
+                                <!-- DELAY -->
 
-            <div class="row">
+                                <h5>Delay</h5>
 
-                <div class="col-md-4">
+                                <div class="row">
 
-                    <label>Delay ms</label>
+                                    <div class="col-md-4">
 
-                    <InputNumber class="form-control"
-                                 @bind-Value=
-                                     "Model.DelayMs" />
+                                        <label>Delay ms</label>
 
-                </div>
+                                        <InputNumber class="form-control"
+                                        @bind-Value=
+                    "Model.DelayMs" />
 
-            </div>
+                                    </div>
 
-            <hr />
+                                </div>
 
-            <!-- ENABLE -->
+                                <hr />
 
-            <div class="form-check">
+                                <!-- ENABLE -->
 
-                <InputCheckbox class="form-check-input"
-                               @bind-Value=
-                                   "Model.IsEnabled" />
+                                <div class="form-check">
 
-                <label class="form-check-label">
-                    Включена
-                </label>
+                                    <InputCheckbox class="form-check-input"
+                                    @bind-Value=
+                    "Model.IsEnabled" />
 
-            </div>
+                                    <label class="form-check-label">
+                                        Включена
+                                    </label>
 
-        </div>
+                                </div>
 
-        <div class="card-footer">
+                            </div>
 
-            <button type="submit"
-                    class="btn btn-primary">
+                            <div class="card-footer">
 
-                Сохранить
+                                <button type="submit"
+                                class="btn btn-primary">
 
-            </button>
+                                    Сохранить
 
-            <button type="button"
-                    class="btn btn-secondary ms-2"
-                    @onclick="Cancel">
+                                </button>
 
-                Отмена
+                                <button type="button"
+                                class="btn btn-secondary ms-2"
+                                @onclick="Cancel">
 
-            </button>
+                                    Отмена
 
-        </div>
+                                </button>
 
-    </div>
+                            </div>
 
-</EditForm>
+                        </div>
 
+                    </EditForm>
+</SecureContent>
 @code {
 
     [Parameter]
@@ -226,8 +237,10 @@
 
     protected override async Task OnInitializedAsync()
     {
-        devices =
-            await Api.GetGroupedDevicesAsync();
+        // вызываем базовый метод
+        await base.OnInitializedAsync(); // проверка аутентификации
+
+        devices = await Api.GetGroupedDevicesAsync();
 
         // EDIT
 

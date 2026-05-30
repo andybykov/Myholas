@@ -1,7 +1,9 @@
 ﻿@page "/"
+
 @using System.Security.Claims
 @using Blazored.LocalStorage
 @using Myholas.Web.Client.Auth
+
 @rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
 
 @inject AuthenticationStateProvider AuthStateProvider

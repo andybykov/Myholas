@@ -33,7 +33,7 @@ namespace Myholas.Web
                         ValidateIssuer = true,
                         ValidateAudience = true,
                         ValidateLifetime = true,
-                        ValidateIssuerSigningKey = true,
+                        ValidateIssuerSigningKey = true, // validate JWT token
                         ValidIssuer = builder.Configuration["JwtSettings:Issuer"],
                         ValidAudience = builder.Configuration["JwtSettings:Audience"],
                         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["JwtSettings:Key"] ?? "fallback_secret_key_32_chars_long!!"))

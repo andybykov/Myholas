@@ -23,6 +23,8 @@
     // Отдельная сущность 
     public class EntityOutputModel
     {
+        //public string DeviceId { get; set; } = ""; // "esp-lamp01"
+
         public string EntityId { get; set; } = ""; // "switch.lamp01"
 
         public string Domain { get; set; } = ""; // "switch", "sensor", "select", "light"

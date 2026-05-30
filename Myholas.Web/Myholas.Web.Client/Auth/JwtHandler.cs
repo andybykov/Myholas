@@ -1,4 +1,5 @@
 ﻿using Blazored.LocalStorage;
+using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using System.Net.Http.Headers;
 
@@ -10,9 +11,13 @@ namespace Myholas.Web.Client.Auth
     {
         private readonly ILocalStorageService _localStorage;
 
-        public JwtHandler(ILocalStorageService localStorage)
+        private readonly NavigationManager _navigationManager;
+
+        public JwtHandler(ILocalStorageService localStorage, NavigationManager navigationManager)
         {
-            _localStorage = localStorage;
+
+            _localStorage = localStorage ?? throw new ArgumentNullException(nameof(localStorage));
+            _navigationManager = navigationManager ?? throw new ArgumentNullException(nameof(navigationManager));
         }
 
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
@@ -24,7 +29,20 @@ namespace Myholas.Web.Client.Auth
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
             }
 
-            return await base.SendAsync(request, cancellationToken);
+            // запрос дальше по цепочке
+            var response = await base.SendAsync(request, cancellationToken);
+
+            // ОТВЕТ СЕРВЕРА
+            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized) // 401
+            {
+                // Очищаем токен
+                await _localStorage.RemoveItemAsync("authToken");
+
+                // redirect to 401 page
+                _navigationManager.NavigateTo("/unauthorized");
+            }
+
+            return response;
         }
     }
 }

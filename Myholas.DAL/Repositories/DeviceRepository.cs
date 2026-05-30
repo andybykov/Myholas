@@ -150,6 +150,8 @@ namespace Myholas.DAL.Repositories
             }
         }
 
+        // STATES!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! in state repo!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      
         //Обновить текущее состояние устройства и добавить запись в историю
         public async Task UpdateStateAsync(StateEntityDto stateEntity)
         {

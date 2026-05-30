@@ -1,42 +1,44 @@
 ﻿@page "/devices"
-@using Microsoft.AspNetCore.Authorization
-@rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
 
-@* Наследуемся от базового класса *@
+@using Myholas.Web.Client.Pages.Existions
+
+@* client rendering && disable pre-rendering *@
+@rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
 @inherits SecureComponentBase
 
-<h3>Устройства ESPHome</h3>
-
-@if (!IsAuthenticated)
-{
-    <div class="alert alert-danger">Доступ ограничен. Пожалуйста, войдите.</div>
-}
-else
-{
-    <h3>Устройства пользователя @CurrentUser?.Username</h3>
+<SecureContent IsLoading="IsLoading" IsAuthenticated="IsAuthenticated">
     
+    <h3>ESPHome devices, вы: @CurrentUser?.Username</h3>
+
     @if (IsAdmin)
     {
-        <div class="alert alert-info">Вы вошли как Администратор системы.</div>
+        <div class="alert alert-info">Вы Администратор.</div>
     }
 
-    <div class="row">
+    @if (groups == null)
+    {
+        <p>Загружаем список устройств...</p>
+        <LoadingSpinner />
+    }
+    else
+    {
+        <div class="row">
             @foreach (var deviceGroup in groups)
             {
                 <div class="col-12">
                     <DeviceGroupCard DeviceGroup="deviceGroup" />
                 </div>
             }
-        </div>    
-}
+        </div>
+    }
+</SecureContent>
 
 @code {
     private List<DeviceOutputModels>? groups;
 
     protected override async Task OnInitializedAsync()
     {
-        // Вызываем проверку из базового класса
-        await base.OnInitializedAsync();
+        await base.OnInitializedAsync(); 
 
         if (IsAuthenticated)
         {

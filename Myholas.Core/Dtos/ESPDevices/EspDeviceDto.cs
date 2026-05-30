@@ -11,7 +11,7 @@ namespace Myholas.Core.Dtos.ESPDevices
 
 
         [JsonPropertyName("name")] 
-        public string? Name { get; set; }
+        public string? Name { get; set; } // == DeviceId
 
 
         [JsonPropertyName("friendly_name")]

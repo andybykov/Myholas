@@ -1,24 +1,29 @@
-﻿@* client rendering *@
+﻿@using Myholas.Core.Models.Output
 @rendermode InteractiveWebAssembly
 @inject ApiClient Api
 
-
-<div class="card device-group-card mb-3 shadow-sm @(DeviceGroup.IsOnline == true ? "border-success" : "border-secondary")">
-    @* Шапка карточки – цвет фона зависит от статуса  *@
-    <div class="card-header @(DeviceGroup.IsOnline == true ? "bg-success" : "bg-secondary") text-white">
+@* Цвет границы зависит от IsOnline (bool?) *@
+<div class="card device-group-card mb-4 shadow-sm @(DeviceGroup.IsOnline == true ? "border-success" : (DeviceGroup.IsOnline == false ? "border-danger" : "border-secondary"))">
+    
+    @* ШАПКА КАРТОЧКИ *@
+    <div class="card-header @(DeviceGroup.IsOnline == true ? "bg-success" : (DeviceGroup.IsOnline == false ? "bg-danger" : "bg-secondary")) text-white">
         <div class="d-flex justify-content-between align-items-center">
-            @*   Заголовок  *@
-            <h5 class="mb-0">
-                📟 @DeviceGroup.DeviceId
-                @* Если у группы задано имя  *@
-                @if (!string.IsNullOrEmpty(DeviceGroup.FriendlyName))
+            <div class="d-flex align-items-center gap-2">
+                <h5 class="mb-0">
+                    📟 @DeviceGroup.DeviceId
+                    @if (!string.IsNullOrEmpty(DeviceGroup.FriendlyName))
+                    {
+                        <span class="fw-light opacity-75">(@DeviceGroup.FriendlyName)</span>
+                    }
+                </h5>
+                @if (!string.IsNullOrEmpty(DeviceGroup.Version))
                 {
-                    <small>(@DeviceGroup.FriendlyName)</small>
+                    <span class="badge bg-dark opacity-75">v@DeviceGroup.Version</span>
                 }
-            </h5>
+            </div>
 
-            @* статус *@
-            <div>
+            <div class="d-flex align-items-center gap-2">
+                @* Статус Online/Offline/Unknown *@
                 @if (DeviceGroup.IsOnline == true)
                 {
                     <span class="badge bg-light text-success">● Online</span>
@@ -31,147 +36,98 @@
                 {
                     <span class="badge bg-light text-secondary">? Unknown</span>
                 }
-
-                @* счетчик *@
-                <span class="badge bg-light text-dark ms-2">@DeviceGroup.Entities.Count entities</span>
+                <span class="badge bg-light text-dark">@DeviceGroup.Entities.Count сущностей</span>
             </div>
         </div>
 
-        @* IP  *@
-        @if (!string.IsNullOrEmpty(DeviceGroup.Ip) || DeviceGroup.LastSeen != null)
-        {
-            <div class="small mt-1">
-                @if (!string.IsNullOrEmpty(DeviceGroup.Ip))
-                {
-                    <span>IP: @DeviceGroup.Ip</span>
-                }
-                @if (DeviceGroup.LastSeen != null)
-                {
-                    <span class="ms-2">
-                        Последнее появление: @DeviceGroup.LastSeen.Value.ToString("g")
-                    </span>
-                }
-            </div>
-        }
+        @* Дополнительная инфо-строка (IP и Время) *@
+        <div class="d-flex gap-3 small opacity-75 mt-1">
+            @if (!string.IsNullOrEmpty(DeviceGroup.Ip))
+            {
+                <span>🌐 IP: @DeviceGroup.Ip</span>
+            }
+            @if (DeviceGroup.LastSeen.HasValue)
+            {
+                <span>🕒 Последний раз: @DeviceGroup.LastSeen.Value.ToString("g")</span>
+            }
+        </div>
     </div>
 
-   
-    <div class="card-body">
+    @* ТЕЛО КАРТОЧКИ *@
+    <div class="card-body bg-light-subtle">
         @foreach (var entity in DeviceGroup.Entities)
         {
-
-            <div class="row mb-3 pb-2 border-bottom">
-                @* Колонка с именем и типом - *@
+            <div class="row mb-3 pb-3 border-bottom last-child-border-none align-items-center">
+                @* Имя и Домен *@
                 <div class="col-sm-4">
-                    <strong>@(entity.Name ?? entity.EntityId.Split('.').Last())</strong>
-                    <br />
-                    <small class="text-muted">@entity.Domain</small>
-
-                    @* Время последнего обновления *@
-                    @if (entity.LastSeen != null)
-                    {
-                        <br />
-                        <small class="text-muted">
-                            обновлено: @entity.LastSeen.Value.ToString("t")
-                        </small>
-                    }
+                    <div class="fw-bold">
+                        @* Приоритет: Name -> EntityId без точки -> EntityId *@
+                        @(entity.Name ?? (entity.EntityId.Contains('.') ? entity.EntityId.Split('.').Last() : entity.EntityId))
+                    </div>
+                    <div class="text-muted" style="font-size: 0.75rem;">
+                        <span class="badge bg-secondary-subtle text-secondary">@entity.Domain</span>
+                        @if (entity.LastSeen.HasValue)
+                        {
+                            <span class="ms-1">обновлено: @entity.LastSeen.Value.ToString("t")</span>
+                        }
+                    </div>
                 </div>
 
-
+                @* Управление/Значение *@
                 <div class="col-sm-8">
-                    @*  UI‑элементы в зависимости от домена  *@
                     @switch (entity.Domain)
                     {
                         case "switch":
-                            @* Кнопки включения/выключения/переключения для переключателя *@
-                            <div class="btn-group btn-group-sm">
-                                <button class="btn btn-success"
-                                        @onclick='() => SendCommand(entity.EntityId, cmd.on.ToString())'
-                                        disabled="@(DeviceGroup.IsOnline == false)">
-                                    Вкл
-                                </button>
-                                <button class="btn btn-danger"
-                                        @onclick='() => SendCommand(entity.EntityId, cmd.off.ToString())'
-                                        disabled="@(DeviceGroup.IsOnline == false)">
-                                    Выкл
-                                </button>
-                                <button class="btn btn-secondary"
-                                        @onclick='() => SendCommand(entity.EntityId, cmd.toggle.ToString())'
-                                        disabled="@(DeviceGroup.IsOnline == false)">
-                                    Перекл
-                                </button>
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="btn-group btn-group-sm">
+                                    <button class="btn btn-outline-success" @onclick='() => SendCommand(entity.EntityId, cmd.on.ToString())' disabled="@(DeviceGroup.IsOnline != true)">Вкл</button>
+                                    <button class="btn btn-outline-danger" @onclick='() => SendCommand(entity.EntityId, cmd.off.ToString())' disabled="@(DeviceGroup.IsOnline != true)">Выкл</button>
+                                    <button class="btn btn-outline-secondary" @onclick='() => SendCommand(entity.EntityId, cmd.toggle.ToString())' disabled="@(DeviceGroup.IsOnline != true)">⇄</button>
+                                </div>
+                                <span class="badge @(entity.IsOn == true ? "bg-success" : "bg-secondary")">
+                                    @(entity.State?.ToUpper() ?? (entity.IsOn == true ? "ON" : "OFF"))
+                                </span>
                             </div>
-
-                            @* Текущее состояние *@
-                            <span class="badge @(entity.IsOn == true ? "bg-success" : "bg-secondary") ms-2">
-                                @(entity.State?.ToUpper())
-                            </span>
                             break;
 
                         case "light":
-                            @* Управление светом *@
-                            <div>
-                                <div class="btn-group btn-group-sm mb-1">
-                                    <button class="btn btn-success"
-                                            @onclick='() => SendCommand(entity.EntityId, cmd.on.ToString())'
-                                            disabled='@(DeviceGroup.IsOnline == false)'>
-                                        Вкл
-                                    </button>
-                                    <button class="btn btn-danger"
-                                            @onclick='() => SendCommand(entity.EntityId, cmd.off.ToString())'
-                                            disabled='@(DeviceGroup.IsOnline == false)'>
-                                        Выкл
-                                    </button>
+                            <div class="light-control-wrapper">
+                                <div class="d-flex align-items-center gap-2 mb-1">
+                                    <div class="btn-group btn-group-sm">
+                                        <button class="btn btn-outline-success" @onclick='() => SendCommand(entity.EntityId, cmd.on.ToString())' disabled="@(DeviceGroup.IsOnline != true)">Вкл</button>
+                                        <button class="btn btn-outline-danger" @onclick='() => SendCommand(entity.EntityId, cmd.off.ToString())' disabled="@(DeviceGroup.IsOnline != true)">Выкл</button>
+                                    </div>
+                                    <span class="badge @(entity.IsOn == true ? "bg-success" : "bg-secondary")">
+                                        @(entity.State?.ToUpper() ?? (entity.IsOn == true ? "ON" : "OFF"))
+                                    </span>
                                 </div>
-                                @* Текущее состояние *@
-                                <span class="badge @(entity.IsOn == true ? "bg-success" : "bg-secondary") ms-2">
-                                    @(entity.State?.ToUpper())
-                                </span>
-                                @* Если свет уже включен *@
                                 @if (entity.IsOn == true)
                                 {
-                                    <div class="d-flex align-items-center mt-1">
-                                        <span class="me-2 small">Яркость</span>
-                                        <input type="range"
-                                               min="0"
-                                               max="255"
-                                               @bind="brightnessCache[entity.EntityId]"
-                                               @bind:event="oninput"
-                                               class="form-range w-50" />
-                                        <button class="btn btn-sm btn-outline-primary ms-2"
-                                                @onclick="() => SetBrightness(entity.EntityId, brightnessCache[entity.EntityId])"
-                                                disabled="@(DeviceGroup.IsOnline == false)">
-                                            OK
-                                        </button>
+                                    <div class="d-flex align-items-center gap-2 mt-1">
+                                        <small class="text-muted">Яркость</small>
+                                        <input type="range" min="0" max="255" @bind="brightnessCache[entity.EntityId]" @bind:event="oninput" class="form-range w-50" />
+                                        <button class="btn btn-sm btn-primary" @onclick="() => SetBrightness(entity.EntityId, brightnessCache[entity.EntityId])" disabled="@(DeviceGroup.IsOnline != true)">OK</button>
                                     </div>
                                 }
                             </div>
                             break;
 
                         case "sensor":
-                            @* Датчики показывают только текущее значение и единицу измерения *@
-                            <span class="badge bg-info">
-                                @entity.State @(entity.UnitOfMeasurement ?? "")
-                            </span>
+                            <div class="d-flex align-items-center">
+                                <span class="fs-5 fw-bold text-primary">
+                                    @entity.State @(entity.UnitOfMeasurement ?? "")
+                                </span>
+                            </div>
                             break;
 
                         case "select":
-
-                            <div class="d-flex align-items-center gap-2 flex-wrap">
-                                <span class="badge bg-secondary">
-                                    Текущее: @entity.State
-                                </span>
-                                <select class="form-select form-select-sm w-auto"
-                                        @onchange='(ChangeEventArgs e) => OnSelectChange(entity.EntityId, e.Value?.ToString() ?? " ")'
-                                        disabled="@(DeviceGroup.IsOnline == false)">
+                            <div class="d-flex align-items-center gap-2">
+                                <select class="form-select form-select-sm w-auto" @onchange='(e) => OnSelectChange(entity.EntityId, e.Value?.ToString() ?? "")' disabled="@(DeviceGroup.IsOnline != true)">
                                     @if (entity.Options != null && entity.Options.Any())
                                     {
                                         @foreach (var opt in entity.Options)
                                         {
-                                            <option value="@opt"
-                                                    selected="@(entity.State == opt)">
-                                                @opt
-                                            </option>
+                                            <option value="@opt" selected="@(entity.State == opt)">@opt</option>
                                         }
                                     }
                                     else
@@ -179,12 +135,12 @@
                                         <option>Нет опций</option>
                                     }
                                 </select>
+                                <span class="badge bg-secondary">@entity.State</span>
                             </div>
                             break;
 
                         default:
-                            @* Если тип неизвестен  *@
-                            <span>@entity.State</span>
+                            <span class="text-muted">@entity.State</span>
                             break;
                     }
                 </div>
@@ -193,24 +149,11 @@
     </div>
 </div>
 
-
 @code {
-
     [Parameter] public DeviceOutputModels DeviceGroup { get; set; } = null!;
-
-    // Кеш яркости
     private Dictionary<string, int> brightnessCache = new();
 
-    public enum cmd 
-    {
-        on,
-        off,
-        toggle
-    };
-
-   
-    // При инициализации заполняем кеш яркости 0 только "light"
-    
+    public enum cmd { on, off, toggle }
 
     protected override void OnInitialized()
     {
@@ -220,57 +163,40 @@
         }
     }
 
-
     private async Task SendCommand(string entityId, string command)
     {
-        if (DeviceGroup.IsOnline == false) return;
-
+        if (DeviceGroup.IsOnline != true) return;
         await Api.SendCommandAsync(entityId, command);
         await RefreshEntityState(entityId);
     }
 
-
-    // Установка яркости 
-
     private async Task SetBrightness(string entityId, int brightness)
     {
-        if (DeviceGroup.IsOnline == false) return;
-
+        if (DeviceGroup.IsOnline != true) return;
         await Api.SetBrightnessAsync(entityId, brightness);
         await RefreshEntityState(entityId);
     }
 
-
-    // Обработчик изменения выбранного значения  <select>
-
     private async Task OnSelectChange(string entityId, string newValue)
     {
-        if (DeviceGroup.IsOnline == false) return;
-
+        if (DeviceGroup.IsOnline != true) return;
         await Api.SendCommandAsync(entityId, newValue);
         await RefreshEntityState(entityId);
     }
 
-
-    // Обновляем состояние конкретного устройства из API 
-   
     private async Task RefreshEntityState(string entityId)
     {
         var updated = await Api.GetCurrentStateAsync(entityId);
         if (updated == null) return;
 
         var entity = DeviceGroup.Entities.FirstOrDefault(e => e.EntityId == entityId);
-        if (entity == null) return;
-
-        // Обновляем измененные поля
-        entity.State = updated.State;
-        entity.IsOn = updated.IsOn;
-        entity.LastSeen = updated.LastSeen;
-
-        // Если API вернул новые опции 
-        if (updated.Options != null)
-            entity.Options = updated.Options;
-
-        StateHasChanged(); // принудительно обновляем UI
+        if (entity != null)
+        {
+            entity.State = updated.State;
+            entity.IsOn = updated.IsOn;
+            entity.LastSeen = updated.LastSeen;
+            if (updated.Options != null) entity.Options = updated.Options;
+        }
+        StateHasChanged();
     }
 }
