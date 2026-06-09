@@ -1,0 +1,25 @@
+﻿@page "/"
+@using Myholas.Web.Client.Pages.Existions
+@rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
+
+@inject NavigationManager Navigation
+@inherits SecureComponentBase
+
+<SecureContent IsLoading="IsLoading" IsAuthenticated="IsAuthenticated">
+
+    </SecureContent>
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+
+        await base.OnInitializedAsync();      
+        if(IsAuthenticated == true)
+        {
+            Navigation.NavigateTo("/devices");
+        }
+        else
+        {
+            Navigation.NavigateTo("/login");
+        }        
+    }
+}

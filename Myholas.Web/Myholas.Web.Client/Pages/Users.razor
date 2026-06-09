@@ -1,0 +1,315 @@
+﻿@page "/users"
+
+@using Myholas.Core.Models.Input
+@using Myholas.Core.Models.Output
+@using Myholas.Core.Dtos
+@using System.Globalization;
+@using Myholas.Web.Client.Pages.Existions
+@using static Myholas.Core.Enums
+
+@rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
+
+@inject NavigationManager Navigation
+@inherits SecureComponentBase
+
+<SecureContent IsLoading="IsLoading" IsAuthenticated="IsAuthenticated">
+    @if (IsAdmin)
+    {
+        <div class="container py-4">
+            @* Nav *@
+            <div class="container py-4">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <!-- Left -->
+                    <div class="d-flex ">
+                        <h3 class="text-main ms-4 m-0">Пользователи</h3>
+                    </div>
+                    <!-- Right -->
+                    <div class="d-flex gap-2">
+
+                        <button class="btn btn-primary shadow-sm" @onclick='() => OpenEditModal()'>
+                            + Добавить пользователя
+                        </button>
+
+                    </div>
+                </div>
+                
+            </div>
+
+           
+
+            <!-- Accordeon -->
+            <div class="accordion custom-card shadow-sm overflow-hidden">
+                <div class="accordion-item border-0 bg-white">
+
+
+                    <h2 class="accordion-header">
+                        @* @onclick *@
+                        <button class="accordion-button bg-white text-main py-3"
+                                type="button"
+                                @onclick="ToggleAccordion"
+                                style="box-shadow: none; border-bottom: 1px solid #e0e0e0; cursor: pointer;">
+
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="mb-0 ms-2 text-main">Всего пользователей: @TotalCountUsers </span>
+                            </div>
+
+                        </button>
+                    </h2>
+
+                    <!-- Схлопывающаяся часть -->
+                    <div class="accordion-collapse @(isAccordionExpanded ? "collapse show" : "collapse")">
+                        <div class="accordion-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0">
+                                    <thead class="table-light text-muted-small">
+                                        <tr class="text-uppercase">
+                                            <th class="ps-3">Имя</th>
+                                            <th>Роль</th>
+                                            <th>Активен</th>
+                                            <th>Зарегистрирован</th>
+                                            <th>Последний вход</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @if (AllUsers == null)
+                                        {
+                                            <tr><td colspan="3" class="text-center py-5 text-muted-small">Загрузка данных...</td></tr>
+                                        }
+                                        else if (!AllUsers.Any())
+                                        {
+                                            <tr><td colspan="3" class="text-center py-5 text-muted-small">Данные отсутствуют</td></tr>
+                                        }
+                                        else
+                                        {
+                                            @foreach (var ad in AllUsers)
+                                            {
+                                                <tr class="align-middle">
+                                                    <td class="text">@ad.Username</td>
+                                                    <td class="text">
+                                                        @ad.Role.ToString()
+                                                        @if (ad.Role == UserRole.Admin)
+                                                        {
+                                                            <button type="button" class="btn btn-sm bi bi-person-plus-fill" @onclick="() => SetRoleUser(ad.Id)"></button>
+                                                        }
+                                                        else
+                                                        {
+                                                            <button type="button" class="btn btn-sm bi bi-person-workspace" @onclick="() => SetRoleAdmin(ad.Id)"></button>
+                                                        }
+
+                                                    </td>
+                                                    <td>
+                                                        <span class="fw-bold text-main">@ad.IsActive</span>
+                                                        <InputCheckbox @bind-Value="ad.IsActive" class="form-check-input" id="isActiveCheck" />
+                                                        <label class="form-check-label" for="isActiveCheck">
+
+                                                        </label>
+                                                    </td>
+                                                    <td class="ps-3 text-muted">@ad.CreatedAt.ToString("dd.MM HH:mm:ss")</td>
+                                                    <td class="ps-3 text-muted">@if (ad.LastLogin != null)
+                                                        @ad.LastLogin.ToString()</td>
+
+                                                        @if (CurrentUser.Id != @ad.Id)
+                                                        {
+                                                            <button type="button" class="btn btn-sm bi bi-trash" @onclick="() => DeleteUser(ad.Id)"></button>
+                                                        }
+                                                    </tr>
+                                                }
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        }
+    else
+        {
+            Navigation.NavigateTo("/", forceLoad: true);
+        }
+    </SecureContent>
+
+    
+    @* MODAL *@
+    <Modal IsVisible="showModal"
+           Title="Добавить пользователя"
+           OnClose="() => showModal = false">
+        <div class="text-start">
+            <EditForm Model="NewUser" OnValidSubmit="OnSubmit" FormName="userRegistration">
+                <div class="mb-3">
+                    <label class="form-label text-muted-small">Имя</label>
+                    <InputText @bind-Value="NewUser.UserName" class="form-control" placeholder="Odmin999" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-muted-small">Пароль</label>
+                    <InputText @bind-Value="NewUser.Password" type="password" class="form-control" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label text-muted-small">Role</label>
+                    <InputSelect @bind-Value="NewUser.Role" class="form-select">
+                        <option value="User">Пользователь</option>
+                        <option value="Admin">Администратор</option>
+                    </InputSelect>
+                </div>
+                <div class="mb-3">
+                    <InputCheckbox @bind-Value="NewUser.IsActive" class="form-check-input" id="isActiveCheck" />
+                    <label class="form-check-label" for="isActiveCheck">
+                        Активен
+                    </label>
+                </div>
+                <div class="text-end mt-4">
+                    <button class="btn btn-primary" type="submit">Создать</button>
+                </div>
+                @if (!string.IsNullOrEmpty(message))
+                {
+                    <div class="alert @alertClass mt-3 text-center">
+                        @message
+                    </div>
+                }
+            </EditForm>
+        </div>
+    </Modal>
+
+
+@code {
+    [Parameter] public string EntityId { get; set; } = "";
+
+    private bool showModal = false;
+
+    private string message = string.Empty;
+
+    private string alertClass = "alert-success";
+
+    public int TotalCountUsers { get; set; } = 0;
+
+    private List<UserEntityOutputModel> AllUsers = new();
+
+    private UserEntityInputModel NewUser = new();
+
+    //  управления состоянием аккордеона
+    private bool isAccordionExpanded = false;
+
+
+
+    protected override async Task OnInitializedAsync()
+    {
+
+        await base.OnInitializedAsync();
+
+        await Load();
+    }
+
+    private async Task Load()
+    {
+        AllUsers.Clear();
+        var admin = UserRole.Admin;
+        var user = UserRole.User;
+
+        var admins = await Api.GetUsersByRole(admin);
+        var users = await Api.GetUsersByRole(user);
+
+
+
+        if (admins != null)
+        {
+            AllUsers.AddRange(admins);
+        }
+        if (users != null)
+        {
+            AllUsers.AddRange(users);
+        }
+
+        TotalCountUsers = AllUsers.Count;
+    }
+
+
+    private async Task ToggleAccordion()
+    {
+        isAccordionExpanded = !isAccordionExpanded;
+    }
+
+    private async Task OpenEditModal()
+    {
+        showModal = true;
+    }
+
+    private async Task SetRoleUser(int id)
+    {
+        await Api.SetRoleUser(id);
+        await Load();
+        StateHasChanged();
+    }
+
+    private async Task SetRoleAdmin(int id)
+    {
+        await Api.SetRoleAdmin(id);
+        await Load();
+        StateHasChanged();
+    }
+
+    private async Task DeleteUser(int id)
+    {
+        try
+        {
+            await Api.DeleteUserAsync(id);
+            await Load();
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ERROR] Delete user faild: {ex}");
+        }
+    }
+
+
+
+    private async Task OnSubmit()
+    {
+        message = string.Empty;
+        await Load();
+        StateHasChanged();
+
+        try
+        {
+            var success = await Api.CreateUserAsync(NewUser);
+
+            if (success)
+            {
+                // Исправлено: user.UserName
+                message = $"Пользователь {NewUser.UserName} успешно зарегистрирован!";
+                alertClass = "alert-success";
+
+                await Task.Delay(500);
+                showModal = false;
+            }
+            else
+            {
+                message = "Ошибка при создании пользователя";
+                alertClass = "alert-danger";
+            }
+        }
+        catch (Exception ex)
+        {
+            message = $"Ошибка: {ex.Message}";
+            alertClass = "alert-danger";
+        }
+        finally
+        {
+            await Load();
+            StateHasChanged();
+        }
+    }
+
+
+    private async Task Cancel()
+    {
+        Navigation.NavigateTo("/users");
+        await Load();
+        StateHasChanged();
+    }
+    
+}

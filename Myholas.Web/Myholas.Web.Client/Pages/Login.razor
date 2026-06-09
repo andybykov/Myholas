@@ -1,0 +1,89 @@
+﻿@page "/login"
+@using Myholas.Core.Models.Input
+@using Myholas.Web.Client.Auth
+
+@inject ApiClient Api
+@inject CustomAuthStateProvider AuthProvider
+
+@inject NavigationManager Navigation
+
+@* Отключаем pre-rendering *@
+@rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
+
+
+<h3 class="text-center mb-4">Авторизация</h3>
+
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="card custom-card shadow-sm p-2">
+            <div class="card-body p-4 p-lg-5">
+                <EditForm Model="loginModel" OnValidSubmit="HandleLogin">
+                    <DataAnnotationsValidator />
+
+                    <div class="mb-3">
+                        <label class="form-label text-muted-small">Логин</label>
+                        <InputText @bind-Value="loginModel.Username"
+                                   class="form-control"
+                                   placeholder="Введите логин" />
+                        <ValidationMessage For="@(() => loginModel.Username)" class="text-danger" />
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label text-muted-small">Пароль</label>
+                        <InputText @bind-Value="loginModel.Password"
+                                   type="password"
+                                   class="form-control"
+                                   placeholder="Введите пароль" />
+                        <ValidationMessage For="@(() => loginModel.Password)" class="text-danger" />
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary py-2 shadow-sm">
+                            Войти в систему
+                        </button>
+                    </div>
+
+                    @if (loginFail)
+                    {
+                        <div class="alert alert-danger mt-4 py-2 text-center" role="alert">
+                            Неверный логин или пароль!
+                        </div>
+                    }
+                </EditForm>
+            </div>
+        </div>
+       
+    </div>
+</div>
+
+
+@code {
+
+    private UserLoginInputModel loginModel = new();
+
+    private bool loginFail = false;
+
+    async Task HandleLogin()
+    {
+        loginFail = false;
+
+        // из loginModel
+        var token = await Api.LoginAsync(loginModel.Username, loginModel.Password);
+
+        if (token != null)
+        {
+            //  Если токен получен - сохраняем
+            await AuthProvider.MarkUserAsAuthenticated(token);
+
+            var user = await Api.GetUserByNameAsync(loginModel.Username);
+            await Api.UpdateLastLoginAsync(user.Id);
+
+            Navigation.NavigateTo("/devices");
+        }
+        else
+        {
+            // не удалось
+            loginFail = true;
+        }
+    }
+}

@@ -1,0 +1,163 @@
+﻿@page "/debug"
+
+@using System.Security.Claims
+@using Blazored.LocalStorage
+@using Myholas.Web.Client.Auth
+@using Myholas.Web.Client.Pages.Existions
+
+@rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
+
+@inherits SecureComponentBase
+@inject ILocalStorageService LocalStorage
+@inject NavigationManager Navigation
+
+<PageTitle>Отладка Авторизации</PageTitle>
+
+       
+    
+    <div class="container py-4">
+        
+        @* Навигация *@
+        <div class="d-flex align-items-center mb-4">
+            <div class="d-flex align-items-center">
+                <button class="btn btn-secondary text-decoration-none me-3" @onclick='() => Navigation.NavigateTo("/")'>
+                    <i class="bi bi-arrow-left me-2"></i> Назад
+                </button>
+                <h3 class="text-main m-0">Отладка Авторизации</h3>
+            </div>
+        </div>
+
+        <div class="row justify-content-center">
+            <div class="col-12 col-lg-10">
+                
+                <div class="card custom-card shadow-sm overflow-hidden mb-4">
+                    <div class="card-header bg-white border-bottom py-3 d-flex align-items-center gap-2">
+                        <i class="bi bi-bug text-primary"></i>
+                        <h5 class="mb-0 text-main">Статус сессии</h5>
+                    </div>
+                    <div class="card-body p-4">
+                        
+                        @if (_authState == null)
+                        {
+                            <div class="text-center py-5">
+                                <div class="spinner-border text-primary" role="status"></div>
+                                <p class="mt-2 text-muted-small">Загрузка данных пользователя...</p>
+                            </div>
+                        }
+                        else if (_authState.User.Identity?.IsAuthenticated == true)
+                        {
+                            <div class="alert alert-success d-flex align-items-center" role="alert">
+                                <i class="bi bi-check-circle-fill me-2"></i> 
+                                <span><strong>Статус:</strong> Пользователь авторизован</span>
+                            </div>
+
+                            <div class="row g-4 mt-2">
+                                <div class="col-md-6">
+                                    <div class="d-flex align-items-center gap-2 mb-3">
+                                        <i class="bi bi-person-badge text-primary"></i>
+                                        <h6 class="text-main mb-0">Информация из Токена (Claims)</h6>
+                                    </div>
+                                    <ul class="list-group list-group-flush border rounded">
+                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                            <span class="text-muted-small">Имя:</span>
+                                            <span class="fw-bold">@(_authState.User.Identity?.Name ?? "N/A")</span>
+                                        </li>
+                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                            <span class="text-muted-small">Роль:</span>
+                                            <span class="badge bg-primary rounded-pill">
+                                                @(_authState.User.FindFirst(ClaimTypes.Role)?.Value ?? "Не указана")
+                                            </span>
+                                        </li>
+                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                            <span class="text-muted-small">ID Пользователя:</span>
+                                            <span class="fw-bold">@(_authState.User.FindFirst("userId")?.Value ?? "Не указан")</span>
+                                        </li>
+                                    </ul>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="d-flex align-items-center gap-2 mb-3">
+                                        <i class="bi bi-key-fill text-primary"></i>
+                                        <h6 class="text-main mb-0">Секретный Токен (JWT)</h6>
+                                    </div>
+                                    <div class="bg-light p-3 border rounded" style="word-break: break-all; font-family: monospace; font-size: 0.75rem; max-height: 180px; overflow-y: auto;">
+                                        @_rawToken
+                                    </div>
+                                    <p class="text-muted-small mt-2">
+                                        <i class="bi bi-info-circle me-1"></i> Скопируйте этот токен в Swagger (Bearer {token}) для тестов.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div class="mt-4 d-flex gap-2">
+                                <a href="/devices" class="btn btn-success px-4">
+                                    <i class="bi bi-box-arrow-in-right me-2"></i> Перейти к устройствам
+                                </a>
+                                <button class="btn btn-outline-danger px-4" @onclick="Logout">
+                                    <i class="bi bi-box-arrow-left me-2"></i> Выйти
+                                </button>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="alert alert-warning d-flex align-items-center" role="alert">
+                                <i class="bi bi-exclamation-triangle-fill me-2"></i> 
+                                <span><strong>Статус:</strong> Пользователь НЕ авторизован (Аноним)</span>
+                            </div>
+                            <div class="text-center py-4">
+                                <p class="text-muted-small mb-4">Вы вошли как гость. Доступ к управлению домом ограничен.</p>
+                                <a href="/login" class="btn btn-primary px-5 py-2 shadow-sm">
+                                    <i class="bi bi-box-arrow-in-right me-2"></i> Перейти к странице входа
+                                </a>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                @* Подсказка *@
+                <div class="p-3 bg-dark text-light rounded shadow-sm" style="font-family: monospace; font-size: 0.85rem;">
+                    <div class="d-flex align-items-center gap-2 mb-2 text-warning">
+                        <i class="bi bi-lightbulb-fill"></i>
+                        <strong class="text-uppercase" style="font-size: 0.7rem">Подсказка для разработчика:</strong>
+                    </div>
+                    <p class="mb-0 text-white-50">
+                        Если вы видите "Не авторизован", но уверены, что токен есть в LocalStorage — проверьте <code class="text-warning">CustomAuthStateProvider.cs</code>. 
+                        Если токен есть, но роль пустая — проверьте <code class="text-warning">AuthController</code> на сервере.
+                    </p>
+                </div>
+
+                <div class="text-center mt-4">
+                    <button class="btn btn-outline-primary btn-sm" @onclick="ModalWin">
+                        <i class="bi bi-window-sidebar me-2"></i> Тест Модального окна
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+  
+
+    @code {
+    private AuthenticationState? _authState;
+    private string? _rawToken;
+
+    protected override async Task OnInitializedAsync()
+    {
+       await base.OnInitializedAsync();
+
+        _authState = await AuthProvider.GetAuthenticationStateAsync();
+        _rawToken = await LocalStorage.GetItemAsync<string>("authToken");
+    }
+
+    private async Task Logout()
+    {
+        if (AuthProvider is CustomAuthStateProvider customProvider)
+        {
+            await customProvider.MarkUserAsUnauthenticated();
+        }
+        Navigation.NavigateTo("/", forceLoad: true);
+    }
+
+    private async Task ModalWin()
+    {        
+        Navigation.NavigateTo("/modal", forceLoad: true);
+    }
+}

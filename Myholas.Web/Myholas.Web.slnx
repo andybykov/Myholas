@@ -1,0 +1,31 @@
+<Solution>
+  <Project Path="../Myholas.API/Myholas.API.csproj" Id="12f7c509-5c61-45f1-935a-b4e55e51f6a2">
+    <BuildDependency Project="../Myholas.BLL/Myholas.BLL.csproj" />
+    <BuildDependency Project="../Myholas.Core/Myholas.Core.csproj" />
+    <BuildDependency Project="../Myholas.DAL/Myholas.DAL.csproj" />
+  </Project>
+  <Project Path="../Myholas.BLL/Myholas.BLL.csproj">
+    <BuildDependency Project="../Myholas.Core/Myholas.Core.csproj" />
+    <BuildDependency Project="../Myholas.DAL/Myholas.DAL.csproj" />
+  </Project>
+  <Project Path="../Myholas.Core/Myholas.Core.csproj" />
+  <Project Path="../Myholas.DAL/Myholas.DAL.csproj">
+    <BuildDependency Project="../Myholas.Core/Myholas.Core.csproj" />
+  </Project>
+  <Project Path="../Myholas.Debug/Myholas.Debug.csproj">
+    <BuildDependency Project="../Myholas.BLL/Myholas.BLL.csproj" />
+    <BuildDependency Project="../Myholas.Core/Myholas.Core.csproj" />
+    <BuildDependency Project="../Myholas.DAL/Myholas.DAL.csproj" />
+    <BuildDependency Project="Myholas.Web.Client/Myholas.Web.Client.csproj" />
+    <BuildDependency Project="Myholas.Web/Myholas.Web.csproj" />
+  </Project>
+  <Project Path="Myholas.Web.Client/Myholas.Web.Client.csproj">
+    <BuildDependency Project="../Myholas.BLL/Myholas.BLL.csproj" />
+    <BuildDependency Project="../Myholas.Core/Myholas.Core.csproj" />
+  </Project>
+  <Project Path="Myholas.Web/Myholas.Web.csproj">
+    <BuildDependency Project="../Myholas.BLL/Myholas.BLL.csproj" />
+    <BuildDependency Project="../Myholas.Core/Myholas.Core.csproj" />
+    <BuildDependency Project="../Myholas.DAL/Myholas.DAL.csproj" />
+  </Project>
+</Solution>

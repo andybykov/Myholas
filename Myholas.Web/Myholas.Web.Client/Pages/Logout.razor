@@ -1,0 +1,27 @@
+﻿@page "/logout"
+
+
+@using Myholas.Web.Client.Auth
+@using Myholas.Web.Client.Pages.Existions
+
+
+@rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
+
+@inject NavigationManager Navigation
+@inherits SecureComponentBase
+
+<SecureContent IsLoading="IsLoading">
+ </SecureContent>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        await UserLogout();
+    }
+
+    protected async Task UserLogout()
+    {
+        await AuthProvider.MarkUserAsUnauthenticated();
+        Navigation.NavigateTo("/", forceLoad: true);
+    }
+}

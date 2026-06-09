@@ -1,0 +1,57 @@
+﻿﻿<div class="mb-3">
+
+    <label class="form-label text-muted-small">
+        @Label
+    </label>
+
+    <select class="form-select "
+            value="@SelectedEntityId"
+            @onchange="OnChanged">
+
+        <option value="">
+            -- Выберите устройство --
+        </option>
+
+        @foreach (var device in Devices)
+        {
+            <optgroup label="@device.DeviceId">
+
+                @foreach (var entity in device.Entities)
+                {
+                    <option value="@entity.EntityId">
+
+                        @(entity.Name ?? entity.EntityId)
+                        (@entity.Domain)
+
+                    </option>
+                }
+
+            </optgroup>
+        }
+
+    </select>
+
+</div>
+
+@code {
+
+    [Parameter]
+    public string Label { get; set; } = "";
+
+    [Parameter]
+    public List<DeviceOutputModel> Devices { get; set; } = new();
+
+    [Parameter]
+    public string SelectedEntityId { get; set; } = "";
+
+    [Parameter]
+    public EventCallback<string> SelectedEntityIdChanged{ get; set; }
+
+    private async Task OnChanged(ChangeEventArgs e)
+    {
+        SelectedEntityId = e.Value?.ToString() ?? "";
+
+        await SelectedEntityIdChanged.InvokeAsync(SelectedEntityId);
+    }
+
+}

@@ -1,0 +1,319 @@
+﻿@using Myholas.Core.Models.Input
+@using Myholas.Core.Models.Output
+@using Myholas.Web.Client.Pages.Existions
+
+@rendermode InteractiveWebAssembly
+
+@inject NavigationManager Navigation
+@inherits SecureComponentBase
+
+<SecureContent IsLoading="IsLoading" IsAuthenticated="IsAuthenticated">
+
+
+<div class="card custom-card mb-4 shadow-sm overflow-hidden">
+    <div class="card-header bg-white border-bottom py-3">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
+            <div class="d-flex align-items-center gap-2">
+                <div class="d-flex flex-column">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-cpu" style="color:lightslategray"></i>
+                        <h5 class="mb-0 text-main ms-2">@DeviceGroup.DeviceId</h5>
+                    </div>
+                    
+                    @if (!string.IsNullOrEmpty(DeviceGroup.FriendlyName))
+                    {
+                        <div class="d-flex align-items-center gap-2">
+                            <small class="text-muted">@DeviceGroup.FriendlyName</small>
+                            <button class="btn btn-link btn-sm p-0 text-decoration-none text-primary"
+                                    style="font-size: 0.75rem;"
+                                    @onclick="OpenEditModal">
+                                Изменить
+                            </button>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge @(DeviceGroup.IsOnline == true ? "status-online" : (DeviceGroup.IsOnline == false ? "status-offline" : "status-unknown"))">
+                    @(DeviceGroup.IsOnline == true ? "● Online" : (DeviceGroup.IsOnline == false ? "● Offline" : "? Unknown"))
+                </span>
+                <span class="badge bg-light text-dark border">@DeviceGroup.Entities.Count entities</span>
+                @if (!string.IsNullOrEmpty(DeviceGroup.Version))
+                {
+                    <span class="badge bg-secondary opacity-75">fw: @DeviceGroup.Version</span>
+                }
+            </div>
+        </div>
+        
+        <div class="d-flex gap-3 text-muted-small mt-2">
+            @if (!string.IsNullOrEmpty(DeviceGroup.Ip))
+            {
+                <i class="bi bi-globe" style="color: cornflowerblue;"></i><span class="text-muted-small"> @DeviceGroup.Ip </span>
+            }
+            @if (DeviceGroup.LastSeen.HasValue)
+            {
+                <i class="bi bi-ethernet"></i> <span class="text-muted-small"> Был в сети @DeviceGroup.LastSeen.Value.ToString("g")</span>
+            }
+        </div>
+    </div>
+
+    <div class="card-body bg-white">
+        @* Entities *@
+        @foreach (var entity in DeviceGroup.Entities)
+        {
+            <div class="row py-3 border-bottom last-child-border-none align-items-center">
+                <div class="col-sm-4">
+                    <div class="fw-bold text-main">
+                        @(entity.Name ?? (entity.EntityId.Contains('.') ? entity.EntityId.Split('.').Last() : entity.EntityId))
+                    </div>
+                    <div class="d-flex align-items-center gap-2 mt-1">
+                        <span class="badge bg-light text-muted border" style="font-size: 0.7rem;">@entity.Domain</span>
+                        @if (entity.LastSeen.HasValue)
+                        {
+                            <span class="text-muted-small">обновлено: @entity.LastSeen.Value.ToString("t")</span>
+                        }
+                    </div>
+                    <button class="btn btn-link btn-sm p-0 mt-2 text-decoration-none text-primary" @onclick='() =>
+                        Navigation.NavigateTo($"entities/history/{entity.EntityId}")'>
+                        История состояний
+                    </button>
+                </div>
+
+                <div class="col-sm-8 text-end">
+                    @switch (entity.Domain)
+                    {
+                        case "switch":
+                                if (IsAdmin)
+                                {
+                                    <div class="d-flex align-items-center justify-content-sm-end gap-2">
+                                <div class="btn-group btn-group-sm">
+                                    <button class="btn btn-outline-success btn-control" @onclick='() => 
+                                        SendCommand(entity.EntityId, cmd.on.ToString())' disabled="@(DeviceGroup.IsOnline != true)">Вкл</button>
+                                    <button class="btn btn-outline-danger btn-control" @onclick='() => 
+                                        SendCommand(entity.EntityId, cmd.off.ToString())' disabled="@(DeviceGroup.IsOnline != true)">Выкл</button>
+                                    <button class="btn btn-outline-secondary btn-control" @onclick='() => 
+                                        SendCommand(entity.EntityId, cmd.toggle.ToString())' disabled="@(DeviceGroup.IsOnline != true)">&#8644;</button>
+                                </div>
+                                <span class="badge @(entity.IsOn == true ? "bg-success" : "bg-secondary")" style="width: 50px">
+                                    @(entity.State?.ToUpper() ?? (entity.IsOn == true ? "ON" : "OFF"))
+                                </span>
+                            </div>
+                                }
+                                
+                            break;
+                        case "light":
+                                if (IsAdmin)
+                                {
+                                    <div class="d-flex flex-column align-items-sm-end gap-2">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <div class="btn-group btn-group-sm">
+                                                <button class="btn btn-outline-success btn-control" @onclick='() => 
+                                            SendCommand(entity.EntityId, cmd.on.ToString())' disabled="@(DeviceGroup.IsOnline != true)">Вкл</button>
+                                                <button class="btn btn-outline-danger btn-control" @onclick='() => 
+                                            SendCommand(entity.EntityId, cmd.off.ToString())' disabled="@(DeviceGroup.IsOnline != true)">Выкл</button>
+                                                <button class="btn btn-outline-secondary btn-control" @onclick='() => 
+                                            SendCommand(entity.EntityId, cmd.toggle.ToString())' disabled="@(DeviceGroup.IsOnline != true)">&#8644;</button>
+                                            </div>
+                                            <span class="badge @(entity.IsOn == true ? "bg-success" : "bg-secondary")" style="width: 50px">
+                                                @(entity.State?.ToUpper() ?? (entity.IsOn == true ? "ON" : "OFF"))
+                                            </span>
+                                        </div>
+
+                                        @* NOT SUPPORTED YET! *@
+                                        @if (false)
+                                        {
+                                    <div class="d-flex align-items-center gap-2" style="max-width: 300px">
+                                        <small class="text-muted">Яркость</small>
+                                        <input type="range" min="0" max="255" @bind="brightnessCache[entity.EntityId]" @bind:event="oninput" class="form-range" />
+                                        <button class="btn btn-sm btn-primary" @onclick="() => 
+                                            SetBrightness(entity.EntityId, brightnessCache[entity.EntityId])" disabled="@(DeviceGroup.IsOnline != true)">OK</button>
+                                    </div>
+                                }
+                            </div>
+                            }
+                            break;
+                        case "sensor":
+                            <div class="d-flex align-items-center justify-content-center">
+                                <span class="fs-5 fw-bold text-main">
+                                    @entity.State <small class="text-muted">@(entity.UnitOfMeasurement ?? "")</small>
+                                </span>
+                            </div>
+                            break;
+                        case "select":
+                                if (IsAdmin)
+                                {
+                                    <div class="d-flex align-items-center justify-content-sm-end gap-2">
+                                        <select class="form-select form-select-sm w-auto text-muted" @onchange='(e) =>
+                                    OnSelectChange(entity.EntityId, e.Value?.ToString() ?? "")' disabled="@(DeviceGroup.IsOnline != true)">
+                                            @if (entity.Options != null && entity.Options.Any())
+                                            {
+                                                @foreach (var opt in entity.Options)
+                                                {
+                                                    <option value="@opt" selected="@(entity.State == opt)">@opt</option>
+                                                }
+                                            }
+                                            else
+                                            {
+                                                <option>Нет опций</option>
+                                            }
+                                        </select>
+                            </div>
+                            }
+                            break;
+                        default:
+                            <span class="text-muted">@entity.State</span>
+                            break;
+                    }
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@* MODAL *@
+<Modal IsVisible="showModal"
+       Title="Настройки устройства"
+       OnClose="() => showModal = false">
+    <div class="text-start">
+        <div class="mb-3">
+            <label class="form-label text-muted-small">Кастомное имя устройства</label>
+            <InputText @bind-Value="tempFriendlyName" class="form-control" placeholder="Напр: Кухонный свет" />
+        </div>
+        <div class="text-end mt-4">
+            <button class="btn btn-outline-secondary btn-sm me-2" @onclick="() => showModal = false">Отмена</button>
+            <button class="btn btn-primary btn-sm" @onclick="SaveFriendlyName">Сохранить</button>
+        </div>
+    </div>
+</Modal>
+</SecureContent>
+@code {
+    [Parameter] public DeviceOutputModel DeviceGroup { get; set; } = null!;
+
+    private string tempFriendlyName = "";
+
+    private Dictionary<string, int> brightnessCache = new();
+
+    public enum cmd { on, off, toggle }
+
+    private bool showModal = false;
+
+
+    protected override void OnInitialized()
+    {
+        base.OnInitializedAsync();
+
+        /*
+        foreach (var entity in DeviceGroup.Entities.Where(e => e.Domain == "light"))
+        {
+            brightnessCache[entity.EntityId] = 0;
+        }
+        */
+    }
+
+    private void OpenEditModal()
+    {
+        tempFriendlyName = DeviceGroup.FriendlyName ?? "";
+        showModal = true;
+    }
+
+    private async Task SaveFriendlyName()
+    {
+        if (string.IsNullOrWhiteSpace(tempFriendlyName)) 
+        return;
+
+        var firstEntity = DeviceGroup.Entities?.FirstOrDefault();
+
+        StateHasChanged();
+
+        if (firstEntity == null)
+        {                  
+            return;
+        }
+
+         var request = new DeviceEntityRequestModel
+        {
+            Device = new DeviceDtoInputModel
+            {
+                DeviceId = DeviceGroup.DeviceId,
+                FriendlyName = tempFriendlyName
+            },
+            Entity = new EntityDtoInputModel
+            {
+                EntityId = firstEntity.EntityId,
+                Domain = !string.IsNullOrEmpty(firstEntity.Domain) ? firstEntity.Domain : "sensor",
+                FriendlyName = firstEntity.Name ?? "DefaultName"
+            }
+        };
+
+
+        var jsonRequest = System.Text.Json.JsonSerializer.Serialize(request);
+        Console.WriteLine($"[DEBUG] Request: {jsonRequest}");
+
+
+        var result = await Api.SaveDeviceAsync(request);
+    
+        if (result != null)
+        {
+            DeviceGroup.FriendlyName = tempFriendlyName;
+            showModal = false;
+            StateHasChanged();
+            Console.WriteLine("[DEBUG] Saved!");
+        }
+        else
+        {
+            Console.WriteLine("[DEBUG] Error 400");
+        }
+    }
+
+
+    private async Task SendCommand(string entityId, string command)
+    {
+        if (DeviceGroup.IsOnline != true) 
+            return;
+
+        await Api.SendCmdAsync(entityId, command);
+
+        await RefreshEntityState(entityId);
+    }
+
+
+    private async Task SetBrightness(string entityId, int brightness)
+    {
+        if (DeviceGroup.IsOnline != true) 
+            return;
+        await Api.SetBrightnessAsync(entityId, brightness);
+
+        await RefreshEntityState(entityId);
+    }
+
+    private async Task OnSelectChange(string entityId, string newValue)
+    {
+        if (DeviceGroup.IsOnline != true) 
+            return;
+
+        await Api.SendCmdAsync(entityId, newValue);
+
+        await RefreshEntityState(entityId);
+    }
+
+    private async Task RefreshEntityState(string entityId)
+    {
+        var updated = await Api.GetStateAsync(entityId);
+        if (updated == null) 
+            return;
+
+        var entity = DeviceGroup.Entities.FirstOrDefault(e => e.EntityId == entityId);
+
+        if (entity != null)
+        {
+            entity.State = updated.State;
+            entity.IsOn = updated.IsOn;
+            entity.LastSeen = updated.LastSeen;
+
+            if (updated.Options != null) 
+                entity.Options = updated.Options;
+        }
+        StateHasChanged();
+    }
+}

@@ -1,0 +1,25 @@
+﻿@using Microsoft.AspNetCore.Components.Authorization
+
+@*  передает состояние авторизации пользователя я *@
+<CascadingAuthenticationState>
+    <Router AppAssembly="typeof(Program).Assembly" AdditionalAssemblies="new[] { typeof(Client._Imports).Assembly }">
+        <Found Context="routeData">
+            @* Заменяем RouteView на AuthorizeRouteView *@
+            <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)">
+                <NotAuthorized>
+                    @*  не залогинен *@
+                    <div class="text-center py-5">
+                        <h3>Доступ ограничен</h3>                       
+                    </div>
+                </NotAuthorized>
+            </AuthorizeRouteView>
+            <FocusOnNavigate RouteData="routeData" Selector="h1" />
+        </Found>
+        <NotFound>
+            <PageTitle>Not Found</PageTitle>
+            <LayoutView Layout="typeof(Layout.MainLayout)">
+                <p role="alert">Стрница не найдена</p>
+            </LayoutView>
+        </NotFound>
+    </Router>
+</CascadingAuthenticationState>

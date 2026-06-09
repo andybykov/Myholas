@@ -1,0 +1,227 @@
+﻿@page "/automations"
+
+@using Microsoft.AspNetCore.Authorization
+@using Myholas.Core.Dtos
+@using System.Text.Json
+@using Myholas.Core.Dtos.Automations
+@using Myholas.Core.Models.Output
+@using Myholas.Web.Client.Pages.Existions
+
+@rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
+
+@inject NavigationManager Navigation
+@inherits SecureComponentBase
+
+<SecureContent IsLoading="IsLoading" IsAuthenticated="IsAuthenticated">
+    
+    <div class="container py-4">
+        @* Nav *@
+        <div class="container py-4">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <!-- Left -->
+                <div class="d-flex align-items-center ">
+                    <h3 class="text-main ms-4 m-0">Автоматизации</h3>
+                    <div class="form-check form-switch ms-2">
+
+                        <input class="form-check-input"
+                               type="checkbox"
+                               @bind="showDisabled"
+                               id="showAllRules" />
+
+                        <label class="form-check-label text-small" for="showAllRules">Показывать выключенные</label>
+                    </div>
+                </div>
+                
+                <!-- Right -->
+                <div class="d-flex gap-2">
+
+                    <button class="btn btn-primary shadow-sm" @onclick='() => Navigation.NavigateTo("/automations/edit")'>
+                        + Создать автоматизацию
+                    </button>
+
+                </div>                
+            </div>
+        </div>
+
+        @if (automations == null)
+        {
+            <div class="text-center py-5">
+                <LoadingSpinner />
+                <p class="mt-2 text-muted-small">Загрузка правил...</p>
+            </div>
+        }
+        else if (!automations.Any())
+        {
+            <div class="card custom-card text-center p-5 shadow-sm">
+                <div class="card-body">
+                    <h5 class="text-muted">Автоматизации не найдены</h5>
+                    @if (IsAdmin)
+                    {
+                        <button class="btn btn-outline-primary" @onclick='() => Navigation.NavigateTo("/automations/edit")'>Создать автоматизацию</button>
+                    }
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="row">
+                @foreach (var a in automations)
+                {
+                    if (showDisabled)
+                    {
+                        <div class="col-12 mb-3">
+                            <div class="card custom-card shadow-sm border-0">
+                            
+                                <div class="card-body p-4">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div class="flex-grow-1 @(a.IsEnabled ? "" : "opacity-50")"
+                                             style="transition: all 0.3s ease; background-color: @(a.IsEnabled ? "#fff" : "#fdfdfd");">
+                                            <div class="d-flex align-items-center mb-2">
+                                                <h5 class="mb-0 text-main">@a.Name</h5>
+                                                <div class="ms-3 d-flex align-items-center gap-3">
+                                                    <div class="form-check form-switch">
+                                                        <!-- TOGGLE Chekbox-->
+                                                        <label class="form-check-label @(a.IsEnabled ? "text-small" : "text-muted-small") " for="@($"sw-{a.Id}") opacity-100">
+                                                        
+                                                            @(a.IsEnabled ? "Активна" : "Выключена")
+                                                        </label>
+                                                        <input class="form-check-input"
+                                                               type="checkbox"
+                                                               id="@($"sw-{a.Id}")"
+                                                               checked="@a.IsEnabled"
+                                                               @onchange="() => Toggle(a.Id, !a.IsEnabled)" />
+                                                    
+                                                    </div>
+                                                    <span class="badge bg-light text-muted border text-muted-small">
+                                                        <i class="bi bi-person-circle me-1"></i> @a.CreatedByUserName
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <p class="text-muted-small mb-3">@a.Description</p>
+
+                                            <div class="row g-3">
+                                                <div class="col-md-4">
+                                                    <div class="p-2 border-start border-primary border-4 bg-light rounded">
+                                                        <div class="text-uppercase fw-bold text-primary mb-1" style="font-size: 0.65rem">Триггер</div>
+                                                        @foreach (var t in a.Triggers)
+                                                        {
+                                                            <div class="small">
+                                                                <code class="bg-white px-1 border">@t.EntityId</code>
+                                                                <span class="badge bg-light text-dark border">@t.Operator</span>
+                                                                <code class="bg-white px-1 border">@t.Value</code>
+                                                            </div>
+                                                        }
+                                                    </div>
+                                                </div>
+
+                                                <div class="col-md-4">
+                                                    <div class="p-2 border-start border-secondary border-4 bg-light rounded">
+                                                        <div class="text-uppercase fw-bold text-secondary mb-1" style="font-size: 0.65rem">Условия</div>
+                                                        @if (a.Conditions == null || !a.Conditions.Any())
+                                                        {
+                                                            <span class="text-muted-small italic">нет условий</span>
+                                                        }
+                                                        else
+                                                        {
+                                                            @foreach (var c in a.Conditions)
+                                                            {
+                                                                <div class="small">
+                                                                    <code class="bg-white px-1 border">@c.EntityId</code>
+                                                                    <span class="badge bg-light text-dark border">@c.Operator</span>
+                                                                    <code class="bg-white px-1 border">@c.Value</code>
+                                                                </div>
+                                                            }
+                                                        }
+                                                    </div>
+                                                </div>
+
+                                                <div class="col-md-4">
+                                                    <div class="p-2 border-start border-success border-4 bg-light rounded">
+                                                        <div class="text-uppercase fw-bold text-success mb-1" style="font-size: 0.65rem">Действие</div>
+                                                        @foreach (var act in a.Actions)
+                                                        {
+                                                            <div class="small">
+                                                                @if (act.Type == "command")
+                                                                {
+                                                                    <span class="text-truncate d-block">
+                                                                        <code class="bg-white px-1 border">
+                                                                            @act.EntityId
+                                                                            <b class="text-dark">@act.Command</b>
+                                                                        </code>
+                                                                    </span>
+                                                                }
+                                                                else if (act.Type == "delay")
+                                                                {
+                                                                    <span class="text-muted-small">Задержка: @(act.Parameters?.GetValueOrDefault("ms") ?? "0")мс</span>
+                                                                }
+                                                            </div>
+                                                        }
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="text-end mt-3">
+                                            <div class="btn-group">
+                                                <!-- EDIT -->
+                                                <button class="btn btn-sm btn-outline-primary" @onclick="() => Edit(a.Id)">
+                                                    <i class="bi bi-pencil-square me-1"></i>
+                                                </button>
+
+                                                <button class="btn btn-sm btn-outline-danger" @onclick="() => Delete(a.Id)">
+                                                    <i class="bi bi-trash me-1"></i>
+                                                </button>
+                                            
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                    
+                }
+            </div>
+        }
+    </div>
+</SecureContent>
+
+
+
+@code {
+    private List<AutomationOutputModel>? automations;
+
+    private bool showDisabled = true; // По умолчанию показываем ВСЕ
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        await Load();
+    }
+
+    private async Task Load()
+    {
+        
+        automations = await Api.GetAutomationsAsync(showDisabled);
+        StateHasChanged();
+    }
+
+    // Показывать выключенные
+    private async Task OnFilterChanged()
+    {
+        await Load(); // reLoad
+    }
+
+    private void Edit(int id) => Navigation.NavigateTo($"/automations/edit/{id}");
+
+    private async Task Delete(int id)
+    {
+        if (await Api.DeleteAutomationAsync(id)) await Load();
+    }
+
+    private async Task Toggle(int id, bool enabled)
+    {
+        await Api.ToggleAutomationAsync(id, enabled);
+        await Load();
+    }
+}
