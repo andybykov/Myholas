@@ -1,9 +1,12 @@
 ﻿@page "/login"
 @using Myholas.Core.Models.Input
 @using Myholas.Web.Client.Auth
+@using Myholas.Web.Client.Pages.Existions
 
 @inject ApiClient Api
-@inject CustomAuthStateProvider AuthProvider
+@* @inject CustomAuthStateProvider AuthProvider *@
+
+@inherits SecureComponentBase
 
 @inject NavigationManager Navigation
 
@@ -11,57 +14,73 @@
 @rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
 
 
-<h3 class="text-center mb-4">Авторизация</h3>
+<ApiAvaible IsLoading="IsLoading" IsApiAvaible="IsApiAvaible">
 
-<div class="row justify-content-center">
-    <div class="col-md-8 col-lg-6">
-        <div class="card custom-card shadow-sm p-2">
-            <div class="card-body p-4 p-lg-5">
-                <EditForm Model="loginModel" OnValidSubmit="HandleLogin">
-                    <DataAnnotationsValidator />
-
-                    <div class="mb-3">
-                        <label class="form-label text-muted-small">Логин</label>
-                        <InputText @bind-Value="loginModel.Username"
-                                   class="form-control"
-                                   placeholder="Введите логин" />
-                        <ValidationMessage For="@(() => loginModel.Username)" class="text-danger" />
-                    </div>
-
-                    <div class="mb-4">
-                        <label class="form-label text-muted-small">Пароль</label>
-                        <InputText @bind-Value="loginModel.Password"
-                                   type="password"
-                                   class="form-control"
-                                   placeholder="Введите пароль" />
-                        <ValidationMessage For="@(() => loginModel.Password)" class="text-danger" />
-                    </div>
-
-                    <div class="d-grid gap-2">
-                        <button type="submit" class="btn btn-primary py-2 shadow-sm">
-                            Войти в систему
-                        </button>
-                    </div>
-
-                    @if (loginFail)
-                    {
-                        <div class="alert alert-danger mt-4 py-2 text-center" role="alert">
-                            Неверный логин или пароль!
-                        </div>
-                    }
-                </EditForm>
-            </div>
+    <h3 class="text-center mb-4">Авторизация</h3>
+    @if (IsAuthenticated)
+    {
+        <div class="alert alert-info text-center">
+            Вы уже авторизованы как <strong>@CurrentUser?.Username</strong>.
+            <br />Для повторной авторизации, пожалуйста выйдите из системы.
         </div>
-       
-    </div>
-</div>
+        <div class="container text-center mb-5">
+            <button class="btn btn-danger" @onclick="Logout">Выйти из системы</button>
+        </div>
+    }
+    else
+    {
+         <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card custom-card shadow-sm p-2">
+                <div class="card-body p-4 p-lg-5">
+                    <EditForm Model="loginModel" OnValidSubmit="HandleLogin">
+                        <DataAnnotationsValidator />
 
+                        <div class="mb-3">
+                            <label class="form-label text-muted-small">Логин</label>
+                            <InputText @bind-Value="loginModel.Username"
+                                       class="form-control"
+                                       placeholder="Введите логин" />
+                            <ValidationMessage For="@(() => loginModel.Username)" class="text-danger" />
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label text-muted-small">Пароль</label>
+                            <InputText @bind-Value="loginModel.Password"
+                                       type="password"
+                                       class="form-control"
+                                       placeholder="Введите пароль" />
+                            <ValidationMessage For="@(() => loginModel.Password)" class="text-danger" />
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary py-2 shadow-sm">
+                                Войти в систему
+                            </button>
+                        </div>
+
+                        @if (loginFail)
+                        {
+                            <div class="alert alert-danger mt-4 py-2 text-center" role="alert">
+                                Неверный логин или пароль!
+                            </div>
+                        }
+                    </EditForm>
+                </div>
+            </div>
+       
+        </div>
+    </div>
+    }
+   
+</ApiAvaible>
 
 @code {
 
     private UserLoginInputModel loginModel = new();
 
     private bool loginFail = false;
+    
 
     async Task HandleLogin()
     {
@@ -85,5 +104,11 @@
             // не удалось
             loginFail = true;
         }
+    }
+
+    private async Task Logout()
+    {
+        await AuthProvider.MarkUserAsUnauthenticated();
+        Navigation.NavigateTo("/login", forceLoad: true);
     }
 }

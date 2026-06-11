@@ -1,0 +1,31 @@
+﻿@if (IsLoading)
+{
+    <LoadingSpinner />
+}
+else if (!IsApiAvaible)
+{    
+    <div class="container content">
+        <div class="row justify-content-center">
+            <div class="col-11 col-md-7">
+                <div class="alert alert-danger alert-dismissible fade show">
+                    <strong>API unavaible</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    @ChildContent
+}
+
+@code {
+    
+    [Parameter] public bool IsApiAvaible { get; set; }
+
+    [Parameter] public bool IsLoading { get; set; }
+
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}
+
+

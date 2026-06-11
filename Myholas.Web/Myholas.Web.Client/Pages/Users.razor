@@ -12,6 +12,7 @@
 @inject NavigationManager Navigation
 @inherits SecureComponentBase
 
+<ApiAvaible IsLoading="IsLoading" IsApiAvaible="IsApiAvaible">
 <SecureContent IsLoading="IsLoading" IsAuthenticated="IsAuthenticated">
     @if (IsAdmin)
     {
@@ -128,9 +129,10 @@
         }
     else
         {
-            Navigation.NavigateTo("/", forceLoad: true);
+            Navigation.NavigateTo("/forbidden", forceLoad: true);
         }
     </SecureContent>
+</ApiAvaible>
 
     
     @* MODAL *@

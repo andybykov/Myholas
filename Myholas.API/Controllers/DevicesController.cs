@@ -94,7 +94,7 @@ namespace Myholas.API.Controllers
         }
 
 
-        // Удалить сущность по EntityId (вместе с её автоматизациями и историей благодаря Cascade Delete)
+        // Удалить сущность по EntityId 
         [Authorize(Roles = "Admin")]
         [HttpDelete("{entityId}")]
         public async Task<IActionResult> Delete(string entityId)

@@ -212,10 +212,12 @@
         await Load(); // reLoad
     }
 
-    private void Edit(int id) => Navigation.NavigateTo($"/automations/edit/{id}");
+    private void Edit(int id) =>
+    Navigation.NavigateTo($"/automations/edit/{id}");
 
     private async Task Delete(int id)
     {
+        
         if (await Api.DeleteAutomationAsync(id)) await Load();
     }
 

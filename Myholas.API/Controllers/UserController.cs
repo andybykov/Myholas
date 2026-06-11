@@ -123,6 +123,7 @@ namespace Myholas.API.Controllers
         }
 
         // GET api/users/{userId}/is-admin
+        [Authorize(Roles = "Admin")]
         [HttpGet("{userId:int}/is-admin")]
         public async Task<ActionResult<bool>> IsAdmin(int userId)
         {
@@ -150,6 +151,7 @@ namespace Myholas.API.Controllers
         }
 
         // GET api/users/by-role/{role}
+        [Authorize(Roles = "Admin")]
         [HttpGet("by-role/{role}")]
         public async Task<ActionResult<List<UserEntityOutputModel>>> GetByRole(UserRole role)
         {

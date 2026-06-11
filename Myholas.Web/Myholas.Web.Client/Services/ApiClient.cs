@@ -1,10 +1,7 @@
-﻿using Myholas.Core.Dtos.Automations;
-using Myholas.Core.Dtos.Devices;
-using Myholas.Core.Models.Input;
+﻿using Myholas.Core.Models.Input;
 using Myholas.Core.Models.Output;
 using System.Net.Http.Json;
 using static Myholas.Core.Enums;
-using static System.Net.WebRequestMethods;
 
 namespace Myholas.Web.Client.Services
 {
@@ -13,6 +10,33 @@ namespace Myholas.Web.Client.Services
         private readonly HttpClient _http;
         public ApiClient(HttpClient http) => _http = http;
 
+        public async Task<bool> IsConnected()
+        {
+            try
+            {
+                var response = await _http.GetAsync("api/ChekConnection");
+                Console.WriteLine($"API RESPONSE STATUS CODE: {response.StatusCode}");
+
+                //  200-299
+                //return response.IsSuccessStatusCode;
+                return true;
+            }
+            catch (HttpRequestException)
+            {
+                Console.WriteLine("Server unavaible");
+                return false;
+            }
+            catch (TaskCanceledException)
+            {
+                Console.WriteLine("Timeout");
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error: {ex.Message}");
+                return false;
+            }
+        }
         //Devices
         public async Task<List<EntityOutputModel>> GetEntitiesAsync(bool includeUnavailable = false) =>
             await _http.GetFromJsonAsync<List<EntityOutputModel>>($"/api/devices/entities?includeUnavailable={includeUnavailable}") ?? new();
@@ -41,7 +65,7 @@ namespace Myholas.Web.Client.Services
                 return await response.Content.ReadFromJsonAsync<EntityDtoInputModel>();
             }
             else
-            { 
+            {
                 var errorContent = await response.Content.ReadAsStringAsync();
                 Console.WriteLine($"[API ERROR 400]: {errorContent}");
                 return null;
@@ -69,20 +93,19 @@ namespace Myholas.Web.Client.Services
                 await _http.PostAsJsonAsync($"/api/states/{entityId}/command", command);
         }
 
-        public async Task TurnOnAsync(string entityId) => 
+        public async Task TurnOnAsync(string entityId) =>
             await SendCmdAsync(entityId, "on");
 
-        public async Task TurnOffAsync(string entityId) => 
+        public async Task TurnOffAsync(string entityId) =>
             await SendCmdAsync(entityId, "off");
 
-        public async Task ToggleAsync(string entityId) => 
+        public async Task ToggleAsync(string entityId) =>
             await SendCmdAsync(entityId, "toggle");
 
-        public async Task SetBrightnessAsync(string entityId, int brightness) => 
+        public async Task SetBrightnessAsync(string entityId, int brightness) =>
             await SendCmdAsync(entityId, "brightness", new { brightness });
 
-        // Automations
-   
+        // Automations   
         public async Task<List<AutomationOutputModel>> GetAutomationsAsync(bool includeDisabled = false) =>
             await _http.GetFromJsonAsync<List<AutomationOutputModel>>($"/api/automations?includeDisabled={includeDisabled}") ?? new();
 
@@ -92,7 +115,7 @@ namespace Myholas.Web.Client.Services
         public async Task<AutomationOutputModel?> CreateAutomationAsync(AutomationInputModel dto)
         {
             var response = await _http.PostAsJsonAsync("/api/automations", dto);
-            if (!response.IsSuccessStatusCode) 
+            if (!response.IsSuccessStatusCode)
                 return null;
             return await response.Content.ReadFromJsonAsync<AutomationOutputModel>();
         }
@@ -116,7 +139,7 @@ namespace Myholas.Web.Client.Services
         public async Task<string?> LoginAsync(string username, string password)
         {
             var response = await _http.PostAsJsonAsync("/api/Auth/login", new { username, password });
-            if (!response.IsSuccessStatusCode) 
+            if (!response.IsSuccessStatusCode)
                 return null;
             var result = await response.Content.ReadFromJsonAsync<TokenResponse>();
             return result?.Token;

@@ -5,21 +5,23 @@
 @inject NavigationManager Navigation
 @inherits SecureComponentBase
 
-<SecureContent IsLoading="IsLoading" IsAuthenticated="IsAuthenticated">
+<ApiAvaible IsApiAvaible="IsApiAvaible">
 
-    </SecureContent>
+</ApiAvaible>
+
 @code {
     protected override async Task OnInitializedAsync()
     {
 
-        await base.OnInitializedAsync();      
-        if(IsAuthenticated == true)
+        await base.OnInitializedAsync();
+   
+        if (IsAuthenticated)
         {
             Navigation.NavigateTo("/devices");
         }
         else
         {
             Navigation.NavigateTo("/login");
-        }        
+        }
     }
 }

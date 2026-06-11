@@ -10,36 +10,37 @@
 @* client rendering && disable pre-rendering *@
 @rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
 
-@inject NavigationManager Navigation
 @inherits SecureComponentBase
+@inject NavigationManager Navigation
 
+<ApiAvaible IsLoading="IsLoading" IsApiAvaible="IsApiAvaible">
     
     <h3 class="text-center mb-4">Регистрация нового пользователя</h3>
 
     @if (IsAuthenticated)
     {
         <div class="alert alert-info text-center">
-            Вы уже авторизованы как <strong>@CurrentUser?.Username</strong>. 
+            Вы уже авторизованы как <strong>@CurrentUser?.Username</strong>.
             <br />Для регистрации нового пользователя, пожалуйста, выйдите из профиля.
         </div>
-    <div class="container text-center mb-5">
-        <button class="btn btn-warning" @onclick="Logout">Выйти из системы</button>
-    </div>
+        <div class="container text-center mb-5">
+            <button class="btn btn-warning" @onclick="Logout">Выйти из системы</button>
+        </div>
     }
     else
     {
         <div class="row justify-content-center">
             <div class="col-md-8 col-lg-6">
-            <div class="card custom-card shadow-sm p-2">
+                <div class="card custom-card shadow-sm p-2">
                     <div class="card-body">
                         <EditForm Model="user" OnValidSubmit="OnSubmit" FormName="userRegistration">
                             <DataAnnotationsValidator />
 
                             <!-- Username -->
                             <div class="mb-3">
-                            <label class="form-label text-muted-small">Имя пользователя *</label>
-                                <InputText @bind-Value="user.UserName" 
-                                           @bind-Value:after="CheckUsernameUnique" 
+                                <label class="form-label text-muted-small">Имя пользователя *</label>
+                                <InputText @bind-Value="user.UserName"
+                                           @bind-Value:after="CheckUsernameUnique"
                                            class="form-control" />
                                 <ValidationMessage For="@(() => user.UserName)" />
                                 @if (usernameExists)
@@ -50,13 +51,13 @@
 
                             <!-- Password -->
                             <div class="mb-3">
-                            <label class="form-label text-muted-small">Пароль *</label>
+                                <label class="form-label text-muted-small">Пароль *</label>
                                 <InputText type="password" @bind-Value="user.Password" class="form-control" />
                                 <ValidationMessage For="@(() => user.Password)" />
-                            </div>                            
+                            </div>
 
                             <div class="d-flex justify-content-center m-0">
-                            <button type="submit" class="btn btn-primary py-2 shadow-sm" disabled="@(isLoading || usernameExists)">
+                                <button type="submit" class="btn btn-primary py-2 shadow-sm" disabled="@(isLoading || usernameExists)">
                                     @if (isLoading)
                                     {
                                         <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
@@ -78,18 +79,23 @@
                         }
                     </div>
                 </div>
-                </div>
             </div>
+        </div>
         
     }
+</ApiAvaible>
 
 @code {
     private UserEntityInputModel user = new();
-    private List<UserEntityOutputModel>? anyAdmins; // Сделали nullable
+
+    private List<UserEntityOutputModel>? anyAdmins; 
 
     private bool isLoading = false;
+
     private string message = string.Empty;
+
     private string alertClass = "alert-success";
+
     private bool usernameExists = false;
 
   

@@ -37,7 +37,8 @@ namespace Myholas.API.Controllers
             return Ok(automation);
         }
 
-        // Создать новую автоматизацию        
+        // Создать новую автоматизацию
+        [Authorize(Roles = "Admin")]
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] AutomationInputModel dto)
         {
@@ -55,6 +56,7 @@ namespace Myholas.API.Controllers
         }
 
         // Обновить существующую автоматизацию
+        [Authorize(Roles = "Admin")]
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(int id, [FromBody] AutomationInputModel dto)
         {
@@ -74,6 +76,7 @@ namespace Myholas.API.Controllers
         }
 
         // Удалить автоматизацию
+        [Authorize(Roles = "Admin")]
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {

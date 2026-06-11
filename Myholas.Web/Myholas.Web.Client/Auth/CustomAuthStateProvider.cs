@@ -54,7 +54,7 @@ namespace Myholas.Web.Client.Auth
         }
 
 
-        // Метод для входа в систему     
+        // Вход в систему     
 
         public async Task MarkUserAsAuthenticated(string token)
         {
@@ -81,10 +81,9 @@ namespace Myholas.Web.Client.Auth
             NotifyAuthenticationStateChanged(Task.FromResult(new AuthenticationState(new ClaimsPrincipal(new ClaimsIdentity()))));
         }
 
-        /// <summary>
-        /// Вспомогательный метод для разбора JWT токена
-        /// JWT состоит из трех частей: Header.Payload.Signature      
-        /// </summary_
+
+        // Для разбора JWT токена
+        // JWT состоит из трех частей: Header.Payload.Signature      
         private List<Claim> ParseClaimsFromJwt(string jwt)
         {
 
@@ -97,14 +96,11 @@ namespace Myholas.Web.Client.Auth
             var keyValuePairs = JsonSerializer.Deserialize<Dictionary<string, object>>(Encoding.UTF8.GetString(jsonBytes));
 
             // ключ-значение из JSON в объект Claim
-
             return keyValuePairs.Select(kvp => new Claim(kvp.Key, kvp.Value.ToString())).ToList();
         }
 
-        /// <summary>
-        /// JWT токены используют Base64Url
-        /// метод добавляет недостающие символы = в конце строки
-        /// </summary>
+        
+        // Добавляет недостающие символы = в конце строки Base64Url!        
         private byte[] ParseBase64WithoutPadding(string base64)
         {
             switch (base64.Length % 4)

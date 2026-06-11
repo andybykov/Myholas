@@ -41,6 +41,7 @@ namespace Myholas.Web
                 });
             
 
+
             // HTTPCLIENT ДЛЯ API 
             builder.Services.AddHttpClient("ApiHttpClient", client =>
             {
@@ -53,6 +54,9 @@ namespace Myholas.Web
                 var httpClient = factory.CreateClient("ApiHttpClient");
                 return new ApiClient(httpClient);
             });
+
+           
+            builder.Services.AddCascadingAuthenticationState();
 
             var app = builder.Build();
 

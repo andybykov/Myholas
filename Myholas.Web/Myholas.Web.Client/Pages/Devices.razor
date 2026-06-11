@@ -3,50 +3,53 @@
 @using Myholas.Web.Client.Pages.Existions
 
 @rendermode @(new InteractiveWebAssemblyRenderMode(prerender: false))
-
+@inject NavigationManager Navigation
 @inherits SecureComponentBase
 
-<SecureContent IsLoading="IsLoading" IsAuthenticated="IsAuthenticated">
-    <div class="container py-4">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h3 class="text-main m-0">Устройства ESPHome</h3>
-            <!--<span class="badge bg-light text-dark border">Пользователь: @CurrentUser?.Username</span> -->
-            <!-- User type -->
-            <span class="badge @(IsAdmin ? "bg-primary" : "bg-warnint text dark")">
-                @(IsAdmin ? $"Администратор: {CurrentUser.Username}" : $"Пользователь: {CurrentUser.Username}")
-            </span>
-        </div>
+<ApiAvaible IsLoading="IsLoading" IsApiAvaible="IsApiAvaible">
+    <SecureContent IsLoading="IsLoading" IsAuthenticated="IsAuthenticated">
 
-        @if (IsAdmin)
-        {
-              <!--
+        <div class="container py-4">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h3 class="text-main m-0">Устройства ESPHome</h3>
+                <!--<span class="badge bg-light text-dark border">Пользователь: @CurrentUser?.Username</span> -->
+                <!-- User type -->
+                <span class="badge @(IsAdmin ? "bg-primary" : "bg-warnint text dark")">
+                    @(IsAdmin ? $"Администратор: {CurrentUser.Username}" : $"Пользователь: {CurrentUser.Username}")
+                </span>
+            </div>
+
+            @if (IsAdmin)
+            {
+                <!--
             <div class="alert alert-info d-flex align-items-center shadow-sm" role="alert">
                 <i class="bi bi-shield-lock-fill me-2"></i> Вы вошли с правами администратора
             </div>
             -->
-        }
+            }
 
-        @if (groups == null)
-        {
-            <div class="text-center py-5">
-                <LoadingSpinner />
-                <p class="text-muted mt-2">Загружаем список устройств...</p>
-            </div>
-        }
-        else
-        {
-            <div class="row g-4">
-                @foreach (var deviceGroup in groups)
-                {
+            @if (groups == null)
+            {
+                <div class="text-center py-5">
+                    <LoadingSpinner />
+                    <p class="text-muted mt-2">Загружаем список устройств...</p>
+                </div>
+            }
+            else
+            {
+                <div class="row g-4">
+                    @foreach (var deviceGroup in groups)
+                    {
                    
-                    <div class="col-12 col-md-6 col-xl-6">
-                        <DeviceGroupCard DeviceGroup="deviceGroup" />
-                    </div>
-                }
-            </div>
-        }
-    </div>
-</SecureContent>
+                        <div class="col-12 col-md-6 col-xl-6">
+                            <DeviceGroupCard DeviceGroup="deviceGroup" />
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </SecureContent>
+</ApiAvaible>
 
 @code {
     private List<DeviceOutputModel>? groups;
@@ -55,6 +58,6 @@
     {
         await base.OnInitializedAsync();
 
-            groups = await Api.GetGroupedDevicesAsync();       
+        groups = await Api.GetGroupedDevicesAsync();
     }
 }

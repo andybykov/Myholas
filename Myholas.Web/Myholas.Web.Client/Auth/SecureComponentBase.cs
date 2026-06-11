@@ -1,6 +1,4 @@
 ﻿using Microsoft.AspNetCore.Components;
-using Microsoft.AspNetCore.Components.Authorization;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Myholas.Core.Models.Output;
 using Myholas.Web.Client.Services;
 
@@ -11,6 +9,8 @@ namespace Myholas.Web.Client.Auth
         [Inject] protected CustomAuthStateProvider AuthProvider { get; set; } = default!;
 
         [Inject] protected ApiClient Api { get; set; } = default!;
+
+        public bool IsApiAvaible { get; private set; }
 
         public UserEntityOutputModel? CurrentUser { get; private set; }
 
@@ -25,10 +25,16 @@ namespace Myholas.Web.Client.Auth
         protected override async Task OnInitializedAsync()
         {
             IsLoading = true;
+            IsApiAvaible = await Api.IsConnected();
+            // Console.WriteLine(IsApiAvaible);
             try
             {
-                await CheckAuthentication();
-                await base.OnInitializedAsync();
+                if (IsApiAvaible)
+                {
+                    await CheckAuthentication();
+                    await base.OnInitializedAsync();
+                }
+
             }
             finally
             {
@@ -36,7 +42,7 @@ namespace Myholas.Web.Client.Auth
             }
         }
 
-        protected virtual async Task CheckAuthentication()
+        protected async Task CheckAuthentication()
         {
             var authState = await AuthProvider.GetAuthenticationStateAsync();
             var user = authState.User;
@@ -62,9 +68,9 @@ namespace Myholas.Web.Client.Auth
 
                         //401 при проверке..                        
                         IsAuthenticated = false;
-                 
+
                         await AuthProvider.MarkUserAsUnauthenticated();
-                        
+
                     }
                 }
             }
