@@ -1,5 +1,6 @@
-﻿using Myholas.Core.Dtos.Devices;
-using Myholas.Core.Dtos.ESPDevices;
+﻿using Myholas.Core.Dtos.DeserializationDtos.ESPDevices;
+using Myholas.Core.Dtos.DeserializationDtos.Z2mDevices;
+using Myholas.Core.Dtos.Devices;
 using Myholas.Core.Interfaces;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -19,8 +20,6 @@ namespace Myholas.BLL.Device
             _eventBus = eventBus;
             _deviceRep = deviceRep;
 
-
-
             _eventBus.Listen("device.updated", OnDeviceUpdated);
             // Online/Offline
             _eventBus.Listen("device_status.updated", OnDeviceStatusUpdated);
@@ -33,39 +32,41 @@ namespace Myholas.BLL.Device
         {
             try
             {
-                // Парсим eviceId + Config
+                // Парсим deviceId + Config
                 var wrapper = JsonSerializer.Deserialize<ConfigWrapper>(data);
 
-                if (wrapper == null || wrapper.Config == null)
+                if (wrapper == null)
                     return;
 
-                var config = wrapper.Config;
                 string deviceId = wrapper.DeviceId;
+                EntityDto? entityDto = null;
 
-                // Минимальный DTO устройства для связи
-                var deviceDto = new DeviceDto { DeviceId = deviceId };
+                // ОПРЕДЕЛЯЕМ ТИП КОНФИГА (ESPHome или Z2M)
+                using var doc = JsonDocument.Parse(wrapper.Config.GetRawText());
+                var root = doc.RootElement;
 
-                // Данные сущности из конфига
-                var entityDto = new EntityDto
+                if (root.TryGetProperty("uniq_id", out _))
                 {
-                    EntityId = config.EntityId ?? $"{config.Domain}.{config.ObjectId}",
-                    Domain = config.Domain ?? "unknown",
-                    FriendlyName = config.Name ?? config.ObjectId,
-                    StateTopic = config.StateTopic,
-                    CommandTopic = config.CommandTopic,
-                    AttributesJson = SerializeAttributes(config)
-                };
-
-                // Спец. поля для сенсоров
-                if (config is SensorEntityConfigDto sensor)
-                {
-                    entityDto.UnitOfMeasurement = sensor.UnitOfMeasurement;
+                    // Это ESPHome
+                    var config = JsonSerializer.Deserialize<BaseEntityConfigDto>(wrapper.Config.GetRawText());
+                    entityDto = MapEspConfigToEntity(config);
                 }
+                else if (root.TryGetProperty("name", out _))
+                {
+                    // Это Zigbee2MQTT
+                    var config = JsonSerializer.Deserialize<Z2MExposeDto>(wrapper.Config.GetRawText());
+                    entityDto = MapZ2mExposeToEntity(config);
+                }
+
+                if (entityDto == null) return;
+
+                // Минимальный DTO устройства для связи (согласно сигнатуре AddOrUpdateEntityAsync)
+                var deviceDto = new DeviceDto { DeviceId = deviceId };
 
                 // В БД
                 await _deviceRep.AddOrUpdateEntityAsync(deviceDto, entityDto);
             }
-            catch (Exception ex) { Console.WriteLine($"Error: {ex.Message}"); }
+            catch (Exception ex) { Console.WriteLine($"Error in OnConfigReceived: {ex.Message}"); }
         }
 
 
@@ -74,47 +75,61 @@ namespace Myholas.BLL.Device
         {
             try
             {
-                var espDevice = JsonSerializer.Deserialize<EspDeviceDto>(data);
-                if (espDevice == null || string.IsNullOrEmpty(espDevice.Name))
-                    return;
+                using var doc = JsonDocument.Parse(data);
+                var root = doc.RootElement;
+                DeviceDto? deviceDto = null;
 
-                var existDevice = await _deviceRep.GetByDeviceIdAsync(espDevice.Name);
-
-                // Dto для обновления
-                var deviceDto = new DeviceDto
+                if (root.TryGetProperty("ieee_address", out _))
                 {
-                    DeviceId = espDevice.Name,
-                    IpAddress = espDevice.Ip,
-                    Version = espDevice.Version,
-                    IsOnline = espDevice.IsOnline,
-                    LastSeen = DateTime.UtcNow
-                };
-
-               if (existDevice == null)
-                {
-                    //  имя из MQTT
-                    deviceDto.FriendlyName = espDevice.FriendlyName;
+                    // Обработка Z2M
+                    var z2m = JsonSerializer.Deserialize<Z2MDeviceDto>(data);
+                    if (z2m == null) return;
+                    deviceDto = new DeviceDto
+                    {
+                        DeviceId = z2m.IeeeAddress,
+                        FriendlyName = z2m.FriendlyName,
+                        IsOnline = z2m.IsOnline,
+                        LastSeen = DateTime.UtcNow
+                    };
                 }
-                else
+                else if (root.TryGetProperty("name", out _))
                 {
-                    // заданное ИМЯ
+                    // Обработка ESPHome
+                    var esp = JsonSerializer.Deserialize<EspDeviceDto>(data);
+                    if (esp == null) return;
+                    deviceDto = new DeviceDto
+                    {
+                        DeviceId = esp.Name,
+                        IpAddress = esp.Ip,
+                        Version = esp.Version,
+                        IsOnline = esp.IsOnline,
+                        LastSeen = DateTime.UtcNow,
+                        FriendlyName = esp.FriendlyName
+                    };
+
+                    // Обработка сущностей, если они пришли в пакете устройства (специфика ESPHome)
+                    if (esp.Entities != null && esp.Entities.Any())
+                    {
+                        foreach (var entityConfig in esp.Entities)
+                        {
+                            var entityDto = MapEspConfigToEntity(entityConfig);
+                            await _deviceRep.AddOrUpdateEntityAsync(deviceDto, entityDto);
+                        }
+                    }
+                }
+
+                if (deviceDto == null) return;
+
+                // Сохраняем заданное в БД имя, если оно есть
+                var existDevice = await _deviceRep.GetByDeviceIdAsync(deviceDto.DeviceId);
+                if (existDevice != null)
+                {
                     deviceDto.FriendlyName = existDevice.FriendlyName;
                 }
 
-                // Обработка сущностей
-                if (espDevice.Entities != null && espDevice.Entities.Any())
-                {
-                    foreach (var entityConfig in espDevice.Entities)
-                    {
-                        var entityDto = MapToEntityDto(entityConfig);
-                        await _deviceRep.AddOrUpdateEntityAsync(deviceDto, entityDto);
-                    }
-                }
-                else
-                {
-                    var emptyEntity = new EntityDto { EntityId = "system.device_info" };
-                    await _deviceRep.AddOrUpdateEntityAsync(deviceDto, emptyEntity);
-                }
+                // Обновляем устройство в БД (в репозитории должен быть метод UpdateDevice или аналогичный)
+                // Так как в вашем IDeviceRepository нет UpdateDevice, используем UpdateDeviceStatusAsync или расширяем репозиторий
+                await _deviceRep.UpdateDeviceStatusAsync(deviceDto);
             }
             catch (Exception ex)
             {
@@ -122,47 +137,63 @@ namespace Myholas.BLL.Device
             }
         }
 
-
-        // Вспомогательный метод для маппинга сущностей
-        private EntityDto MapToEntityDto(BaseEntityConfigDto config)
+        // Вспомогательный метод для маппинга ESPHome
+        private EntityDto MapEspConfigToEntity(BaseEntityConfigDto config)
         {
-            var entityDto = new EntityDto
+            return new EntityDto
             {
-                EntityId = $"{config.Domain}.{config.ObjectId}",
+                EntityId = config.EntityId ?? $"{config.Domain}.{config.ObjectId}",
                 Domain = config.Domain ?? "unknown",
                 FriendlyName = config.Name ?? config.ObjectId,
                 StateTopic = config.StateTopic,
                 CommandTopic = config.CommandTopic,
                 AttributesJson = SerializeAttributes(config)
             };
-
-            // Специфичные поля для сенсоров
-            if (config is SensorEntityConfigDto sensor)
-            {
-                entityDto.UnitOfMeasurement = sensor.UnitOfMeasurement;
-            }
-
-            return entityDto;
         }
 
+        // Вспомогательный метод для маппинга Z2M
+        private EntityDto MapZ2mExposeToEntity(Z2MExposeDto config)
+        {
+            return new EntityDto
+            {
+                EntityId = $"{GetZ2mDomain(config.Type)}.{config.Name}",
+                Domain = GetZ2mDomain(config.Type),
+                FriendlyName = config.Label ?? config.Name,
+                AttributesJson = SerializeAttributes(config)
+            };
+        }
 
+        private string GetZ2mDomain(string? type) => type switch
+        {
+            "numeric" => "sensor",
+            "binary" => "binary_sensor",
+            "enum" => "sensor",
+            _ => "sensor"
+        };
 
         private async void OnDeviceStatusUpdated(string eventType, string data)
         {
             try
             {
-                var espDevice = JsonSerializer.Deserialize<EspDeviceDto>(data);
-                if (espDevice == null)
-                    return;
+                using var doc = JsonDocument.Parse(data);
+                var root = doc.RootElement;
+                DeviceDto? deviceDto = null;
 
-                // копируем данные
-                var deviceDto = new DeviceDto
+                if (root.TryGetProperty("ieee_address", out _))
                 {
-                    DeviceId = espDevice.Name,
-                    IsOnline = espDevice.IsOnline
-                };
+                    var z2m = JsonSerializer.Deserialize<Z2MDeviceDto>(data);
+                    deviceDto = new DeviceDto { DeviceId = z2m?.IeeeAddress ?? "", IsOnline = z2m?.IsOnline ?? false };
+                }
+                else
+                {
+                    var esp = JsonSerializer.Deserialize<EspDeviceDto>(data);
+                    deviceDto = new DeviceDto { DeviceId = esp?.Name ?? "", IsOnline = esp?.IsOnline ?? false };
+                }
 
-                await _deviceRep.UpdateDeviceStatusAsync(deviceDto);
+                if (deviceDto != null)
+                {
+                    await _deviceRep.UpdateDeviceStatusAsync(deviceDto);
+                }
             }
             catch (Exception ex)
             {
@@ -190,12 +221,10 @@ namespace Myholas.BLL.Device
             await _deviceRep.AddOrUpdateEntityAsync(sensorDevice, sensorEntity);
         }
 
-
-        // JSON атрибуты 
-        private string? SerializeAttributes(BaseEntityConfigDto config)
+        // JSON атрибуты (универсальный метод)
+        private string? SerializeAttributes(object config)
         {
-            if (config == null)
-                return null;
+            if (config == null) return null;
 
             var options = new JsonSerializerOptions
             {
@@ -203,34 +232,32 @@ namespace Myholas.BLL.Device
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase
             };
 
-            //  поля в зависимости от типа
-            if (config is SelectEntityConfigDto select)
-            {
-                var subset = new { select.Options };
-                return JsonSerializer.Serialize(subset, options);
-            }
-
             if (config is SensorEntityConfigDto sensor)
             {
-                var subset = new { sensor.UnitOfMeasurement, sensor.DeviceClass };
-                return JsonSerializer.Serialize(subset, options);
+                return JsonSerializer.Serialize(new { sensor.UnitOfMeasurement, sensor.DeviceClass }, options);
             }
-
+            if (config is SelectEntityConfigDto select)
+            {
+                return JsonSerializer.Serialize(new { select.Options }, options);
+            }
             if (config is SwitchEntityConfigDto sw)
             {
-                var subset = new { sw.PayloadOn, sw.PayloadOff };
-                return JsonSerializer.Serialize(subset, options);
+                return JsonSerializer.Serialize(new { sw.PayloadOn, sw.PayloadOff }, options);
+            }
+            if (config is Z2MExposeDto z2m)
+            {
+                return JsonSerializer.Serialize(new { z2m.Type, z2m.Label }, options);
             }
 
             return null;
         }
     }
 
-    
     // Контейнер для передачи DeviceId + Config
     public class ConfigWrapper
     {
-        public string DeviceId { get; set; }
-        public BaseEntityConfigDto Config { get; set; }
+        public string DeviceId { get; set; } = "";
+        // Изменено на JsonElement, чтобы поддерживать любой тип конфига (ESP или Z2M)
+        public JsonElement Config { get; set; }
     }
 }

@@ -3,7 +3,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Myholas.BLL;
 using Myholas.Core;
 using Myholas.Core.Dtos;
-using Myholas.Core.Dtos.ESPDevices;
 using Myholas.Core.Interfaces;
 using Myholas.Core.Models;
 using Myholas.Core.MQTT;
@@ -32,10 +31,8 @@ namespace Myholas.Debug
             bus.Emit("command.select.heater_mode", "high");
         }
 
-
-        public static async Task Main(string[] args)
+        public static async void Test1()
         {
-
             //  DI
             var services = new ServiceCollection();
 
@@ -45,7 +42,7 @@ namespace Myholas.Debug
             services.AddScoped<IDeviceRepository, DeviceRepository>();
             services.AddScoped<IStateRepository, StateRepository>();
 
-           
+
             var sp = services.BuildServiceProvider();
 
             using (var scope = sp.CreateScope())
@@ -62,8 +59,8 @@ namespace Myholas.Debug
             var bus = new EventBus();
             var stateM = new StateMachine();
             var discovery = new MqttDeviceDiscoveryService(mqttService, mqttServer);
-            var bridge = new MqttToEventBusBridge(bus, discovery);
-            
+            //var bridge = new MqttToEventBusBridge(bus, discovery);
+
 
             //  репозитории 
             var deviceRepo = sp.GetRequiredService<IDeviceRepository>();
@@ -76,7 +73,7 @@ namespace Myholas.Debug
             // запуск
             await discovery.StartAsync();
             await Task.Delay(2000);
-           // var dd = deviceManager.GetAllDevices();
+            // var dd = deviceManager.GetAllDevices();
             //var lamp01 = deviceRepo.GetByDeviceIdAsync("esp-lamp01");
 
             //var allDevices = await deviceRepo.GetAllAsync();  
@@ -134,7 +131,21 @@ namespace Myholas.Debug
 
             Console.ReadLine();
 
-            await discovery.StopAsync();
+            await discovery.StopAsync();        
+        }
+
+        public static async void Test2()
+        {           
+            var mqttServer = "192.168.100.39";
+            var mqttService = new MqttService();
+            var zigbeeService = new Zigbee2MqttDiscoveryService(mqttService, mqttServer);
+            await zigbeeService.StartAsync();
+          
+        }
+        public static async Task Main(string[] args)
+        {
+            Test2();
+            Console.ReadLine();
         }
     }
 }

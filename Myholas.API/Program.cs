@@ -8,10 +8,13 @@ using Myholas.BLL.Device;
 using Myholas.BLL.State;
 using Myholas.BLL.User;
 using Myholas.Core;
+using Myholas.Core.Dtos.DeserializationDtos.ESPDevices;
+using Myholas.Core.Dtos.DeserializationDtos.Z2mDevices;
 using Myholas.Core.Interfaces;
 using Myholas.Core.MappingProfiles;
 using Myholas.Core.MQTT;
 using Myholas.DAL.Repositories;
+using System.Diagnostics;
 using System.Security.Claims;
 using System.Text;
 
@@ -129,17 +132,42 @@ namespace Myholas.API
             var mqttServer = "192.168.100.39";
             var mqttPort = "1883";
 
+            //  ESPHome Discovery
             builder.Services.AddSingleton<MqttDeviceDiscoveryService>(sp =>
             {
-                var mqttService = sp.GetRequiredService<IMqttService>();
-                return new MqttDeviceDiscoveryService(mqttService, mqttServer, mqttPort);
+                var mqttEspService = sp.GetRequiredService<IMqttService>();
+                return new MqttDeviceDiscoveryService(mqttEspService, mqttServer, mqttPort);
             });
 
-            builder.Services.AddSingleton<MqttToEventBusBridge>(sp =>
+            // Регистрируем его же как интерфейс
+            builder.Services.AddSingleton<IMqttDiscoveryService<EspDeviceDto, BaseEntityConfigDto>>(sp =>
+                sp.GetRequiredService<MqttDeviceDiscoveryService>());
+
+            //  Zigbee2MQTT Discovery
+            builder.Services.AddSingleton<Zigbee2MqttDiscoveryService>(sp =>
             {
-                var eventBus = sp.GetRequiredService<IEventBus>();
-                var discovery = sp.GetRequiredService<MqttDeviceDiscoveryService>();
-                return new MqttToEventBusBridge(eventBus, discovery);
+                var mqttService = sp.GetRequiredService<IMqttService>();
+                return new Zigbee2MqttDiscoveryService(mqttService, mqttServer, mqttPort);
+            });
+
+            // Регистрируем его же как интерфейс
+            builder.Services.AddSingleton<IMqttDiscoveryService<Z2MDeviceDto, Z2MExposeDto>>(sp =>
+                sp.GetRequiredService<Zigbee2MqttDiscoveryService>());
+
+            // Мост для ESPHome
+            builder.Services.AddSingleton<MqttToEventBusBridge<EspDeviceDto, BaseEntityConfigDto>>(sp =>
+            {
+                var eventBus = sp.GetRequiredService<IEventBus>();             
+                var discovery = sp.GetRequiredService<IMqttDiscoveryService<EspDeviceDto, BaseEntityConfigDto>>();
+                return new MqttToEventBusBridge<EspDeviceDto, BaseEntityConfigDto>(eventBus, discovery);
+            });
+
+            // Мост для Zigbee2MQTT
+            builder.Services.AddSingleton<MqttToEventBusBridge<Z2MDeviceDto, Z2MExposeDto>>(sp =>
+            {
+                var eventBus = sp.GetRequiredService<IEventBus>();               
+                var discovery = sp.GetRequiredService<IMqttDiscoveryService<Z2MDeviceDto, Z2MExposeDto>>();
+                return new MqttToEventBusBridge<Z2MDeviceDto, Z2MExposeDto>(eventBus, discovery);
             });
 
             builder.Services.AddScoped<ICommandSender, MqttCommandSender>(sp =>

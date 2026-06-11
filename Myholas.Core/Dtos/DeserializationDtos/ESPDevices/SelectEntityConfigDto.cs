@@ -5,7 +5,7 @@ using System.Text;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
-namespace Myholas.Core.Dtos.ESPDevices
+namespace Myholas.Core.Dtos.DeserializationDtos.ESPDevices
 {
     // Конфигурация для select
     public class SelectEntityConfigDto : BaseEntityConfigDto

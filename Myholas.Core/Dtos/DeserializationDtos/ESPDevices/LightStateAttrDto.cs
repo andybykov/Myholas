@@ -1,6 +1,6 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace Myholas.Core.Dtos.ESPDevices
+namespace Myholas.Core.Dtos.DeserializationDtos.ESPDevices
 {
     // для состояний устройств типа light
     public class LightStateAttrDto

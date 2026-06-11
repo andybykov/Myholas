@@ -1,12 +1,13 @@
 ﻿using MQTTnet;
-using Myholas.Core.Dtos.ESPDevices;
+using Myholas.Core.Dtos.DeserializationDtos.ESPDevices;
+using Myholas.Core.Dtos.DeserializationDtos.Z2mDevices;
 using Myholas.Core.Interfaces;
 using System.Collections.Concurrent;
 using System.ComponentModel;
 using System.Text;
 using System.Text.Json;
 
-public sealed class MqttDeviceDiscoveryService : IAsyncDisposable
+public sealed class MqttDeviceDiscoveryService : IMqttDiscoveryService<EspDeviceDto, BaseEntityConfigDto>
 {
     private readonly IMqttService _mqtt;
 
@@ -14,7 +15,7 @@ public sealed class MqttDeviceDiscoveryService : IAsyncDisposable
 
     private ConcurrentDictionary<string, EspDeviceDto> _espDevices = new();
 
-    private readonly List<string> _discoverTopics = ["esphome/discover/#", "#"];
+    private readonly List<string> _discoverTopics = ["#"];
 
 
     public event Action<string, BaseEntityConfigDto>? EntityConfigReceived;

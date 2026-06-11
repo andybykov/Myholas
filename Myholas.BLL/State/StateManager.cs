@@ -1,8 +1,8 @@
 ﻿#define DEB
 using AutoMapper;
 using Myholas.Core.Dtos;
+using Myholas.Core.Dtos.DeserializationDtos.ESPDevices;
 using Myholas.Core.Dtos.Devices;
-using Myholas.Core.Dtos.ESPDevices;
 using Myholas.Core.Interfaces;
 using Myholas.Core.Models.Output;
 using System.Text.Json;

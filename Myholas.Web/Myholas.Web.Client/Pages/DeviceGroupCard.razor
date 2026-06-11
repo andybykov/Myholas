@@ -21,14 +21,21 @@
                     </div>
                     
                     @if (!string.IsNullOrEmpty(DeviceGroup.FriendlyName))
-                    {
-                        <div class="d-flex align-items-center gap-2">
+                        {
+                            var devId = DeviceGroup.DeviceId;
+
+                            <div class="d-flex align-items-center gap-2">
                             <small class="text-muted">@DeviceGroup.FriendlyName</small>
                             <button class="btn btn-link btn-sm p-0 text-decoration-none text-primary"
                                     style="font-size: 0.75rem;"
                                     @onclick="OpenEditModal">
                                 Изменить
                             </button>
+                                <button class="btn btn-link btn-sm p-0 text-decoration-none text-danger"
+                                        style="font-size: 0.75rem;"
+                                        @onclick="() => DeleteDevice(devId)">
+                                    Удалить
+                                </button>
                         </div>
                     }
                 </div>
@@ -207,7 +214,7 @@
         foreach (var entity in DeviceGroup.Entities.Where(e => e.Domain == "light"))
         {
             brightnessCache[entity.EntityId] = 0;
-        }
+            }
         */
     }
 
@@ -215,6 +222,18 @@
     {
         tempFriendlyName = DeviceGroup.FriendlyName ?? "";
         showModal = true;
+    }
+
+    private async Task DeleteDevice(string deviceId)
+    {
+        var devices = await Api.GetByDeviceAsync(deviceId);
+
+        foreach(var d in devices)
+        {
+            await Api.DeleteEntityAsync(d.EntityId);
+        }
+        StateHasChanged();
+
     }
 
     private async Task SaveFriendlyName()

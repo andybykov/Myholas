@@ -9,7 +9,7 @@ namespace Myholas.Core.MQTT
     /// Реализация IMqttService с использованием библиотеки MQTTnet.
     /// Управляет подключением, переподключением и рассылкой входящих сообщений
     /// </summary>
-    public class MqttService : IMqttService
+    public sealed class MqttService : IMqttService
     {
         private IMqttClient? _mqttClient;
 

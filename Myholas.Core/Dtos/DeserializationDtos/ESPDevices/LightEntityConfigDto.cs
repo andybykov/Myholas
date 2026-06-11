@@ -1,6 +1,6 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace Myholas.Core.Dtos.ESPDevices
+namespace Myholas.Core.Dtos.DeserializationDtos.ESPDevices
 {
     // Конфигурация для света
     public class LightEntityConfigDto : BaseEntityConfigDto

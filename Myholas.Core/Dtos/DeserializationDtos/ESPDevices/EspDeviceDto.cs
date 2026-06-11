@@ -1,6 +1,6 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace Myholas.Core.Dtos.ESPDevices
+namespace Myholas.Core.Dtos.DeserializationDtos.ESPDevices
 {
     // Первично найденное устройство ESPhome
     // временное представление 
@@ -10,7 +10,7 @@ namespace Myholas.Core.Dtos.ESPDevices
         public string? Ip { get; set; }
 
 
-        [JsonPropertyName("name")] 
+        [JsonPropertyName("name")]
         public string? Name { get; set; } // == DeviceId
 
 
@@ -42,5 +42,5 @@ namespace Myholas.Core.Dtos.ESPDevices
 
         // Конфиги сущностей устройства
         public List<BaseEntityConfigDto> Entities { get; set; } = new();
-    }    
+    }
 }

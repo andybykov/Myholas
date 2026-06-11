@@ -162,7 +162,7 @@ namespace Myholas.DAL.Repositories
         }
 
 
-        // Удаление
+        // Удаление cущности
         public async Task<bool> DeleteEntityAsync(string entityId)
         {
             using var scope = _scopeFactory.CreateScope();
@@ -172,6 +172,22 @@ namespace Myholas.DAL.Repositories
                 return false;
 
             context.Entities.Remove(entity);
+            await context.SaveChangesAsync();
+
+            return true;
+        }
+
+        // Удаление cущности
+        public async Task<bool> DeleteDeviceAsync(string deviceId)
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<DataContext>();
+
+            var device = await context.Devices.FirstOrDefaultAsync(e => e.DeviceId == deviceId);
+            if (device == null)
+                return false;
+
+            context.Devices.Remove(device);
             await context.SaveChangesAsync();
 
             return true;

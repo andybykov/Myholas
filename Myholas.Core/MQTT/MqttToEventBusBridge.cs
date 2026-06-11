@@ -1,33 +1,33 @@
-﻿#define DEB
-using Myholas.Core.Dtos.ESPDevices;
-using Myholas.Core.Interfaces;
+﻿using Myholas.Core.Interfaces;
 using System.Text.Json;
 
 namespace Myholas.Core.MQTT
 {
     // Мост MQTT Discovery и EventBus
-    // Публикует события в EventBus на основе событий из MqttDeviceDiscoveryService
-    public class MqttToEventBusBridge
+    // Публикует события в EventBus на основе событий из IMqttDiscoveryService
+    // Теперь Bridge универсален для любого типа устройств и конфигов
+    public class MqttToEventBusBridge<TDevice, TConfig>
     {
         private readonly IEventBus _eventBus;
+        private readonly IMqttDiscoveryService<TDevice, TConfig> _discoveryService;
 
-        private readonly MqttDeviceDiscoveryService _discoveryService;
-
-        public MqttToEventBusBridge(IEventBus eventBus, MqttDeviceDiscoveryService discoveryService)
+        public MqttToEventBusBridge(
+            IEventBus eventBus,
+            IMqttDiscoveryService<TDevice, TConfig> discoveryService)
         {
             _eventBus = eventBus;
             _discoveryService = discoveryService;
 
-            // Подписка на события от discovery сервиса
+            // Подписка на универсальные события от discovery сервиса
             _discoveryService.StateReceived += OnStateReceived;
             _discoveryService.CommandReceived += OnCommandReceived;
             _discoveryService.DeviceUpdated += OnDeviceUpdated;
             _discoveryService.DeviceStatusUpdated += OnDeviceStatusUpdated;
-            _discoveryService.EntityConfigReceived += OnConfigRecived;
+            _discoveryService.EntityConfigReceived += OnConfigReceived;
         }
 
-        // Обработчик BaseEntityConfigDto ESPHome устройства
-        private void OnConfigRecived(string deviceId, BaseEntityConfigDto config)
+        // Обработчик конфигурации устройства (TConfig)
+        private void OnConfigReceived(string deviceId, TConfig config)
         {
             var recived = "config.received";
             // Передаем оба параметра в JSON, чтобы менеджер их увидел
@@ -36,30 +36,29 @@ namespace Myholas.Core.MQTT
             _eventBus.Emit(recived, data);
         }
 
-        // Обработчик EspDeviceDto ESPHome устройства
-        private void OnDeviceUpdated(EspDeviceDto device)
+        // Обработчик обновления устройства (TDevice)
+        private void OnDeviceUpdated(TDevice device)
         {
             var updated = "device.updated";
             var json = JsonSerializer.Serialize(device);
 
 #if DEB
-            Console.WriteLine($"[BridgeToBus] Emitting device.updated for {device.Name}");
+            Console.WriteLine($"[BridgeToBus] Emitting device.updated for {device}");
 #endif
             _eventBus.Emit(updated, json);
         }
 
-        // Обработчик статуса EspDeviceDto ESPHome устройства
-        private void OnDeviceStatusUpdated(EspDeviceDto device)
+        // Обработчик статуса устройства (TDevice)
+        private void OnDeviceStatusUpdated(TDevice device)
         {
-            var statusChanged = "device_status.updated"; 
+            var statusChanged = "device_status.updated";
             var json = JsonSerializer.Serialize(device);
 
 #if DEB
-            Console.WriteLine($"[BridgeToBus] Emitting status update for {device.Name}: {device.IsOnline}");
+            Console.WriteLine($"[BridgeToBus] Emitting status update for {device}");
 #endif
             _eventBus.Emit(statusChanged, json);
         }
-
 
         // Обработчик изменения состояния 
         private void OnStateReceived(string deviceId, string entityId, string state)
