@@ -202,7 +202,11 @@
 
         await base.OnInitializedAsync();
 
-        await Load();
+        if (IsAdmin)
+        {
+            await Load();
+        }
+        
     }
 
     private async Task Load()

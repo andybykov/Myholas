@@ -8,12 +8,11 @@
         Открыть настройки
     </button>
 
-    @* Использование нашего компонента *@
     <Modal IsVisible="showModal"
            Title="Настройки устройства"
            OnClose="() => showModal = false">
         
-        @* Весь этот блок попадет в @ChildContent компонента Modal *@
+        @*  @ChildContent компонента Modal *@
         <div class="text-start">
             <p class="text-muted-small mb-3">Измените параметры вашего устройства ниже:</p>
             
