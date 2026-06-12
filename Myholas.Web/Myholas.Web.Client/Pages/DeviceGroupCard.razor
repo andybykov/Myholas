@@ -84,7 +84,7 @@
                     @switch (entity.Domain)
                     {
                         case "switch":
-                                if (IsAdmin)
+                                if (IsAdmin || !IsAdmin)
                                 {
                                     <div class="d-flex align-items-center justify-content-sm-end gap-2">
                                 <div class="btn-group btn-group-sm">
@@ -103,7 +103,7 @@
                                 
                             break;
                         case "light":
-                                if (IsAdmin)
+                                if (IsAdmin || !IsAdmin)
                                 {
                                     <div class="d-flex flex-column align-items-sm-end gap-2">
                                         <div class="d-flex align-items-center gap-2">
@@ -141,7 +141,7 @@
                             </div>
                             break;
                         case "select":
-                                if (IsAdmin)
+                                if (IsAdmin || !IsAdmin)
                                 {
                                     <div class="d-flex align-items-center justify-content-sm-end gap-2">
                                         <select class="form-select form-select-sm w-auto text-muted" @onchange='(e) =>

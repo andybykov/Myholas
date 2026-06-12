@@ -46,8 +46,7 @@ namespace Myholas.API.Controllers
             return Ok(history);
         }
 
-        // Отправить команду устройству 
-        [Authorize(Roles = "Admin")]
+        // Отправить команду устройству        
         [HttpPost("{entityId}/command")]
         public async Task<IActionResult> SendCommand(string entityId, [FromBody] string command)
         {
@@ -63,8 +62,7 @@ namespace Myholas.API.Controllers
             }
         }
 
-        //  Включить устройство 
-        [Authorize(Roles = "Admin")]
+        //  Включить устройство         
         [HttpPost("{entityId}/turn_on")]
         public async Task<IActionResult> TurnOn(string entityId)
         {
@@ -72,8 +70,7 @@ namespace Myholas.API.Controllers
             return Accepted();
         }
 
-        //  Выключить устройство 
-        [Authorize(Roles = "Admin")]
+        //  Выключить устройство        
         [HttpPost("{entityId}/turn_off")]
         public async Task<IActionResult> TurnOff(string entityId)
         {
@@ -81,8 +78,7 @@ namespace Myholas.API.Controllers
             return Accepted();
         }
 
-        //  Переключить устройство 
-        [Authorize(Roles = "Admin")]
+        //  Переключить устройство       
         [HttpPost("{entityId}/toggle")]
         public async Task<IActionResult> Toggle(string entityId)
         {
@@ -90,8 +86,7 @@ namespace Myholas.API.Controllers
             return Accepted();
         }
 
-        //  Установить яркость 
-        [Authorize(Roles = "Admin")]
+        //  Установить яркость       
         [HttpPost("{entityId}/brightness")]
         public async Task<IActionResult> SetBrightness(string entityId, [FromBody] int brightness)
         {
