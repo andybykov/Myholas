@@ -97,7 +97,7 @@ namespace Myholas.API.Controllers
         // Удалить сущность по EntityId 
         [Authorize(Roles = "Admin")]
         [HttpDelete("{entityId}")]
-        public async Task<IActionResult> Delete(string entityId)
+        public async Task<IActionResult> DeleteEntity(string entityId)
         {
             var exists = await _deviceManager.ExistsAsync(entityId);
             if (!exists)
@@ -109,13 +109,17 @@ namespace Myholas.API.Controllers
 
             return StatusCode(500, "Failed to remove entity");
         }
-    }
 
-    // Вспомогательный класс для приема данных в POST запросе
-    public class DeviceEntityRequest
-    {
-        public DeviceDtoInputModel Device { get; set; } = null!;
 
-        public EntityDtoInputModel Entity { get; set; } = null!;
+        // Удалить устройство
+        ///
+
+        // Вспомогательный класс для приема данных в POST запросе
+        public class DeviceEntityRequest
+        {
+            public DeviceDtoInputModel Device { get; set; } = null!;
+
+            public EntityDtoInputModel Entity { get; set; } = null!;
+        }
     }
 }

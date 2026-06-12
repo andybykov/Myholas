@@ -129,29 +129,43 @@
 
     private async Task RenderChart()
     {
-        if (history == null || !history.Any()) return;
+        if (history == null || !history.Any())
+            return;
 
         var sortedData = history.OrderBy(x => x.CreatedAt).ToList();
         var labels = sortedData.Select(x => x.CreatedAt.ToString("HH:mm:ss")).ToArray();
         var rawStates = sortedData.Select(x => x.State ?? "unknown").ToArray();
 
+        //  все ли значения числовые
         bool isNumeric = rawStates.All(s => double.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out _));
 
-        double[] values;
+      
+        double?[] values;
         string[] stateMap = Array.Empty<string>();
 
         if (isNumeric)
         {
-            values = rawStates.Select(s => double.Parse(s, CultureInfo.InvariantCulture)).ToArray();
+            values = rawStates.Select(s =>
+            {
+                if (double.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out double val))
+                {
+                    // если NaN возвращаем null
+                    // иначет сериазизатор падает
+                    return double.IsNaN(val) ? (double?)null : val;
+                }
+                return null;
+            }).ToArray();
         }
         else
         {
             stateMap = rawStates.Distinct().ToArray();
-            values = rawStates.Select(s => (double)Array.IndexOf(stateMap, s)).ToArray();
+           
+            values = rawStates.Select(s => (double?)Array.IndexOf(stateMap, s)).ToArray();
         }
-
+      
         await JS.InvokeVoidAsync("renderChart", "historyChart", labels, values, rawStates, stateMap);
     }
+
 
     private void Cancel() =>
        Navigation.NavigateTo("/devices");
